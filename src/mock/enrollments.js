@@ -1,0 +1,13 @@
+export const enrollments = [
+  { id: 1, studentId: 1, studentName: 'Arjun Menon', courseId: 1, courseName: 'BCA', courseFee: 45000, collectedAmount: 45000, paymentDate: '2024-06-01', status: 'Paid', accessStatus: 'granted', enrollmentType: 'direct' },
+  { id: 2, studentId: 2, studentName: 'Priya Nair', courseId: 2, courseName: 'MCA', courseFee: 55000, collectedAmount: 20000, paymentDate: '2024-06-10', status: 'Partial', accessStatus: 'granted', enrollmentType: 'direct' },
+  { id: 3, studentId: 3, studentName: 'Rahul Sharma', courseId: 2, courseName: 'MCA', courseFee: 55000, collectedAmount: 30000, paymentDate: '2024-06-15', status: 'Partial', accessStatus: 'granted', enrollmentType: 'direct' },
+  { id: 4, studentId: 4, studentName: 'Sneha Pillai', courseId: 1, courseName: 'BCA', courseFee: 45000, collectedAmount: 45000, paymentDate: '2024-06-20', status: 'Paid', accessStatus: 'granted', enrollmentType: 'direct' },
+  { id: 5, studentId: 6, studentName: 'Meera Krishnan', courseId: 2, courseName: 'MCA', courseFee: 55000, collectedAmount: 55000, paymentDate: '2024-07-01', status: 'Paid', accessStatus: 'granted', enrollmentType: 'direct' },
+  { id: 6, studentId: 8, studentName: 'Divya Thomas', courseId: 1, courseName: 'BCA', courseFee: 45000, collectedAmount: 0, paymentDate: null, status: 'Pending', accessStatus: 'pending_approval', enrollmentType: 'request', appliedDate: '2024-07-20' },
+  { id: 7, studentId: 10, studentName: 'Anu George', courseId: 2, courseName: 'MCA', courseFee: 55000, collectedAmount: 10000, paymentDate: '2024-07-10', status: 'Partial', accessStatus: 'granted', enrollmentType: 'direct' },
+  { id: 8, studentId: 12, studentName: 'Lakshmi Devi', courseId: 1, courseName: 'BCA', courseFee: 45000, collectedAmount: 45000, paymentDate: '2024-07-15', status: 'Paid', accessStatus: 'granted', enrollmentType: 'direct' },
+  { id: 9, studentId: 7, studentName: 'Kiran Babu', courseId: 1, courseName: 'BCA', courseFee: 45000, collectedAmount: 0, paymentDate: null, status: 'Pending', accessStatus: 'pending_approval', enrollmentType: 'request', appliedDate: '2024-07-22' },
+  { id: 10, studentId: 9, studentName: 'Suresh Nambiar', courseId: 2, courseName: 'MCA', courseFee: 55000, collectedAmount: 0, paymentDate: null, status: 'Pending', accessStatus: 'pending_approval', enrollmentType: 'request', appliedDate: '2024-07-25' },
+  { id: 11, studentId: 11, studentName: 'Vishnu Raj', courseId: 3, courseName: 'BBA', courseFee: 35000, collectedAmount: 0, paymentDate: null, status: 'Pending', accessStatus: 'pending_approval', enrollmentType: 'request', appliedDate: '2024-07-28' },
+]
