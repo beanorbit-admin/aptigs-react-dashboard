@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Pencil, Trash2 } from 'lucide-react'
+import { Pencil, Trash2, Eye } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PageWrapper from '../../components/layout/PageWrapper'
 import Button from '../../components/common/Button'
@@ -54,7 +54,14 @@ export default function QuizList() {
   }
 
   const columns = [
-    { header: 'Title', cell: q => <span className="font-medium text-gray-900">{q.title}</span> },
+    {
+      header: 'Title',
+      cell: q => (
+        <button onClick={() => navigate(`/quizzes/${q.id}/questions`)} className="font-medium text-indigo-700 hover:underline text-left">
+          {q.title}
+        </button>
+      ),
+    },
     { header: 'Course', accessor: 'courseName' },
     { header: 'Questions', accessor: 'totalQuestions' },
     { header: 'Pass Score', cell: q => `${q.passScore}%` },
@@ -68,10 +75,13 @@ export default function QuizList() {
       header: 'Actions',
       cell: q => (
         <div className="flex gap-2">
-          <button onClick={() => navigate(`/quizzes/${q.id}/edit`)} className="p-1.5 text-amber-600 hover:bg-amber-50 rounded transition">
+          <button onClick={() => navigate(`/quizzes/${q.id}/questions`)} className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded transition" title="View Questions">
+            <Eye className="h-4 w-4" />
+          </button>
+          <button onClick={() => navigate(`/quizzes/${q.id}/edit`)} className="p-1.5 text-amber-600 hover:bg-amber-50 rounded transition" title="Edit Quiz">
             <Pencil className="h-4 w-4" />
           </button>
-          <button onClick={() => setDeleteTarget(q)} className="p-1.5 text-red-600 hover:bg-red-50 rounded transition">
+          <button onClick={() => setDeleteTarget(q)} className="p-1.5 text-red-600 hover:bg-red-50 rounded transition" title="Delete Quiz">
             <Trash2 className="h-4 w-4" />
           </button>
         </div>

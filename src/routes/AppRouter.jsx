@@ -18,8 +18,7 @@ import TeacherList from '../pages/Teachers/TeacherList'
 import TeacherDetail from '../pages/Teachers/TeacherDetail'
 import QuizList from '../pages/Quizzes/QuizList'
 import QuizForm from '../pages/Quizzes/QuizForm'
-import QuestionList from '../pages/Questions/QuestionList'
-import QuestionForm from '../pages/Questions/QuestionForm'
+import QuizQuestions from '../pages/Quizzes/QuizQuestions'
 import SchedulePage from '../pages/Schedule/SchedulePage'
 import PaymentsPage from '../pages/Payments/PaymentsPage'
 import NotificationsPage from '../pages/Notifications/NotificationsPage'
@@ -47,9 +46,7 @@ export default function AppRouter() {
         <Route path="/quizzes" element={<ProtectedRoute><QuizList /></ProtectedRoute>} />
         <Route path="/quizzes/new" element={<ProtectedRoute><QuizForm /></ProtectedRoute>} />
         <Route path="/quizzes/:id/edit" element={<ProtectedRoute><QuizForm /></ProtectedRoute>} />
-        <Route path="/questions" element={<ProtectedRoute><QuestionList /></ProtectedRoute>} />
-        <Route path="/questions/new" element={<ProtectedRoute><QuestionForm /></ProtectedRoute>} />
-        <Route path="/questions/:id/edit" element={<ProtectedRoute><QuestionForm /></ProtectedRoute>} />
+        <Route path="/quizzes/:id/questions" element={<ProtectedRoute><QuizQuestions /></ProtectedRoute>} />
         <Route path="/schedule" element={<ProtectedRoute><SchedulePage /></ProtectedRoute>} />
         <Route path="/payments" element={<ProtectedRoute><PaymentsPage /></ProtectedRoute>} />
         <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />

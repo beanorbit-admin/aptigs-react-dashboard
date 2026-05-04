@@ -1,7 +1,7 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Users, BookOpen, GraduationCap, UserCheck,
-  ClipboardList, HelpCircle, Calendar, CreditCard, Bell, LogOut
+  ClipboardList, Calendar, CreditCard, Bell, LogOut
 } from 'lucide-react'
 import { useAppDispatch, useAppSelector } from '../../hooks/redux'
 import { logout } from '../../store/slices/authSlice'
@@ -13,7 +13,6 @@ const navLinks = [
   { to: '/courses', label: 'Courses', icon: GraduationCap },
   { to: '/teachers', label: 'Teacher Management', icon: UserCheck, adminOnly: true },
   { to: '/quizzes', label: 'Quizzes', icon: ClipboardList },
-  { to: '/questions', label: 'Questions', icon: HelpCircle },
   { to: '/schedule', label: 'Schedule', icon: Calendar },
   { to: '/payments', label: 'Payments', icon: CreditCard },
   { to: '/notifications', label: 'Notifications', icon: Bell },
