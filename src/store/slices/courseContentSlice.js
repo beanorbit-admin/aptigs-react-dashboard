@@ -82,11 +82,11 @@ const courseContentSlice = createSlice({
     },
     deleteSemester(state, { payload: id }) {
       state.semesters = state.semesters.filter(s => s.id !== id)
-      const subIds = state.subjects.filter(s => s.semesterId === id).map(s => s.id)
-      state.subjects  = state.subjects.filter(s => s.semesterId !== id)
-      const chIds = state.chapters.filter(c => subIds.includes(c.subjectId)).map(c => c.id)
-      state.chapters  = state.chapters.filter(c => !subIds.includes(c.subjectId))
-      state.lessons   = state.lessons.filter(l => !chIds.includes(l.chapterId))
+      const subIds = state.subjects.filter(s => s.semester === id).map(s => s.id)
+      state.subjects  = state.subjects.filter(s => s.semester !== id)
+      const chIds = state.chapters.filter(c => subIds.includes(c.subject)).map(c => c.id)
+      state.chapters  = state.chapters.filter(c => !subIds.includes(c.subject))
+      state.lessons   = state.lessons.filter(l => !chIds.includes(l.chapter))
     },
     addSubject(state, { payload })    { state.subjects.push(payload) },
     updateSubject(state, { payload }) {
@@ -95,9 +95,9 @@ const courseContentSlice = createSlice({
     },
     deleteSubject(state, { payload: id }) {
       state.subjects = state.subjects.filter(s => s.id !== id)
-      const chIds = state.chapters.filter(c => c.subjectId === id).map(c => c.id)
-      state.chapters = state.chapters.filter(c => c.subjectId !== id)
-      state.lessons  = state.lessons.filter(l => !chIds.includes(l.chapterId))
+      const chIds = state.chapters.filter(c => c.subject === id).map(c => c.id)
+      state.chapters = state.chapters.filter(c => c.subject !== id)
+      state.lessons  = state.lessons.filter(l => !chIds.includes(l.chapter))
     },
     addChapter(state, { payload })    { state.chapters.push(payload) },
     updateChapter(state, { payload }) {
@@ -106,7 +106,7 @@ const courseContentSlice = createSlice({
     },
     deleteChapter(state, { payload: id }) {
       state.chapters = state.chapters.filter(c => c.id !== id)
-      state.lessons  = state.lessons.filter(l => l.chapterId !== id)
+      state.lessons  = state.lessons.filter(l => l.chapter !== id)
     },
     addLesson(state, { payload })    { state.lessons.push(payload) },
     updateLesson(state, { payload }) {

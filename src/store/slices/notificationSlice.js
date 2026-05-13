@@ -32,9 +32,9 @@ const notificationSlice = createSlice({
     setNotifications: (state, action) => { state.list = action.payload },
     markAsRead: (state, action) => {
       const n = state.list.find(n => n.id === action.payload)
-      if (n) n.isRead = true
+      if (n) n.is_read = true
     },
-    markAllAsRead: (state) => { state.list.forEach(n => { n.isRead = true }) },
+    markAllAsRead: (state) => { state.list.forEach(n => { n.is_read = true }) },
     sendNotification: (state, action) => { state.sent.unshift(action.payload) },
     addScheduled: (state, action) => { state.scheduled.push(action.payload) },
     deleteScheduled: (state, action) => { state.scheduled = state.scheduled.filter(s => s.id !== action.payload) },
@@ -49,10 +49,10 @@ const notificationSlice = createSlice({
       .addCase(fetchNotificationsThunk.rejected, (state, { payload }) => { state.loading = false; state.error = payload })
       .addCase(markAsReadThunk.fulfilled, (state, { payload: id }) => {
         const n = state.list.find(n => n.id === id)
-        if (n) n.isRead = true
+        if (n) n.is_read = true
       })
       .addCase(markAllAsReadThunk.fulfilled, (state) => {
-        state.list.forEach(n => { n.isRead = true })
+        state.list.forEach(n => { n.is_read = true })
       })
       .addCase(fetchScheduledThunk.fulfilled, (state, { payload }) => {
         state.scheduled = payload.results ?? payload

@@ -63,11 +63,11 @@ const quizSlice = createSlice({
       })
       .addCase(addQuestionsThunk.fulfilled, (state, { payload }) => {
         const quiz = state.list.find(q => q.id === payload.id)
-        if (quiz) quiz.questionIds = payload.questionIds ?? quiz.questionIds
+        if (quiz) quiz.quiz_questions = payload.quiz_questions ?? quiz.quiz_questions
       })
       .addCase(removeQuestionThunk.fulfilled, (state, { payload: { quizId, questionId } }) => {
         const quiz = state.list.find(q => q.id === quizId)
-        if (quiz) quiz.questionIds = (quiz.questionIds || []).filter(qid => qid !== questionId)
+        if (quiz) quiz.quiz_questions = (quiz.quiz_questions || []).filter(qq => qq.question?.id !== questionId)
       })
   },
 })

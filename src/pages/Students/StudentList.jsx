@@ -10,7 +10,7 @@ import Modal from '../../components/common/Modal'
 import Input from '../../components/common/Input'
 import Badge from '../../components/common/Badge'
 import { useAppDispatch, useAppSelector } from '../../hooks/redux'
-import { updateStudent, deleteStudent, fetchStudentsThunk, updateStudentThunk, deleteStudentThunk } from '../../store/slices/studentSlice'
+import { fetchStudentsThunk, updateStudentThunk, deleteStudentThunk } from '../../store/slices/studentSlice'
 
 const PAGE_SIZE = 10
 
@@ -32,7 +32,7 @@ export default function StudentList() {
     const s = (query.search || '').toLowerCase()
     const filtered = s
       ? students.filter(st =>
-          [st.firstName, st.lastName, st.name, st.email].some(v =>
+          [st.first_name, st.last_name, st.name, st.email].some(v =>
             (v || '').toLowerCase().includes(s)
           )
         )
@@ -51,10 +51,10 @@ export default function StudentList() {
     const result = await dispatch(updateStudentThunk({
       id: editTarget.id,
       data: {
-        firstName: data.firstName,
-        lastName: data.lastName,
+        first_name: data.first_name,
+        last_name: data.last_name,
         email: data.email,
-        countryCode: data.countryCode,
+        country_code: data.country_code,
         phone: data.phone,
         place: data.place,
       },
@@ -85,19 +85,19 @@ export default function StudentList() {
     },
     {
       header: 'Name',
-      cell: r => <span className="font-medium text-gray-900">{r.name || `${r.firstName} ${r.lastName}`}</span>,
+      cell: r => <span className="font-medium text-gray-900">{r.name || `${r.first_name} ${r.last_name}`}</span>,
     },
     { header: 'Email', accessor: 'email' },
     {
       header: 'Phone',
-      cell: r => <span>{r.countryCode} {r.phone}</span>,
+      cell: r => <span>{r.country_code} {r.phone}</span>,
     },
     { header: 'Place', accessor: 'place' },
     {
       header: 'Enrolled Courses',
       cell: r => (
-        <Badge variant={r.enrolledCourses.length > 0 ? 'info' : 'default'}>
-          {r.enrolledCourses.length} course{r.enrolledCourses.length !== 1 ? 's' : ''}
+        <Badge variant={(r.enrolled_courses?.length ?? 0) > 0 ? 'info' : 'default'}>
+          {r.enrolled_courses?.length ?? 0} course{(r.enrolled_courses?.length ?? 0) !== 1 ? 's' : ''}
         </Badge>
       ),
     },
@@ -137,17 +137,17 @@ export default function StudentList() {
           <div className="grid grid-cols-2 gap-4">
             <Input
               label="First Name"
-              name="firstName"
+              name="first_name"
               placeholder="First name"
-              error={errors.firstName?.message}
-              {...register('firstName', { required: 'Required' })}
+              error={errors.first_name?.message}
+              register={n => register(n, { required: 'Required' })}
             />
             <Input
               label="Last Name"
-              name="lastName"
+              name="last_name"
               placeholder="Last name"
-              error={errors.lastName?.message}
-              {...register('lastName', { required: 'Required' })}
+              error={errors.last_name?.message}
+              register={n => register(n, { required: 'Required' })}
             />
           </div>
           <Input
@@ -156,16 +156,13 @@ export default function StudentList() {
             type="email"
             placeholder="email@example.com"
             error={errors.email?.message}
-            {...register('email', {
-              required: 'Email is required',
-              pattern: { value: /^\S+@\S+$/, message: 'Invalid email' },
-            })}
+            register={n => register(n, { required: 'Email is required', pattern: { value: /^\S+@\S+$/, message: 'Invalid email' } })}
           />
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-gray-700">Phone</label>
             <div className="flex gap-2">
               <select
-                {...register('countryCode')}
+                {...register('country_code')}
                 className="border border-gray-300 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-24"
               >
                 {['+91', '+1', '+44', '+971', '+61', '+65', '+60'].map(c => (
@@ -188,7 +185,7 @@ export default function StudentList() {
             name="place"
             placeholder="City / Location"
             error={errors.place?.message}
-            {...register('place', { required: 'Place is required' })}
+            register={n => register(n, { required: 'Place is required' })}
           />
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="secondary" type="button" onClick={() => setModalOpen(false)}>Cancel</Button>

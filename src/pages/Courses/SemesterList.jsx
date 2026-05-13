@@ -43,7 +43,7 @@ export default function SemesterList() {
 
   const course = courses.find(c => c.id === Number(courseId))
   const courseSemesters = semesters
-    .filter(s => s.courseId === Number(courseId))
+    .filter(s => s.course === Number(courseId))
     .sort((a, b) => a.order - b.order)
 
   const visibleSemesters = useMemo(() => {
@@ -53,7 +53,7 @@ export default function SemesterList() {
     )
   }, [courseSemesters, search])
 
-  const subjectCount = (semId) => subjects.filter(s => s.semesterId === semId).length
+  const subjectCount = (semId) => subjects.filter(s => s.semester === semId).length
 
   const openAdd = () => { setEditTarget(null); reset({ name: '', description: '' }); setModalOpen(true) }
   const openEdit = (sem) => { setEditTarget(sem); reset({ name: sem.name, description: sem.description }); setModalOpen(true) }
@@ -179,7 +179,7 @@ export default function SemesterList() {
             name="name"
             placeholder="e.g. Semester 1"
             error={errors.name?.message}
-            {...register('name', { required: 'Name is required' })}
+            register={n => register(n, { required: 'Name is required' })}
           />
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-gray-700">Description</label>

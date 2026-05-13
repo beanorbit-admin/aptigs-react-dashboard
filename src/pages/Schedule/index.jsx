@@ -69,7 +69,7 @@ function StudyScheduleTab() {
   }
 
   const selectSemester = (courseId, semId) => {
-    const schedule = courseSchedules.find(s => s.courseId === courseId && s.semesterId === semId) || null
+    const schedule = courseSchedules.find(s => s.course === courseId && s.semester === semId) || null
     dispatch(setSelectedSchedule(schedule))
     setActiveCourseId(courseId)
     setActiveSemesterId(semId)
@@ -85,8 +85,8 @@ function StudyScheduleTab() {
   const openEditDuration = () => {
     setIsEditingDuration(true)
     setSForm({
-      startDate: selectedSchedule.startDate,
-      endDate: selectedSchedule.endDate,
+      startDate: selectedSchedule.start_date,
+      endDate: selectedSchedule.end_date,
       weeks: selectedSchedule.weeks,
     })
     setScheduleModalOpen(true)
@@ -100,7 +100,7 @@ function StudyScheduleTab() {
     if (isEditingDuration) {
       const result = await dispatch(updateCourseScheduleThunk({
         id: selectedSchedule.id,
-        data: { startDate: sForm.startDate, endDate: sForm.endDate, weeks: Number(sForm.weeks) },
+        data: { start_date: sForm.startDate, end_date: sForm.endDate, weeks: Number(sForm.weeks) },
       }))
       if (result.meta.requestStatus === 'fulfilled') {
         dispatch(setSelectedSchedule(result.payload))
@@ -110,8 +110,8 @@ function StudyScheduleTab() {
       const result = await dispatch(createCourseScheduleThunk({
         course: activeCourseId,
         semester: activeSemesterId,
-        startDate: sForm.startDate,
-        endDate: sForm.endDate,
+        start_date: sForm.startDate,
+        end_date: sForm.endDate,
         weeks: Number(sForm.weeks),
         days: [],
       }))
@@ -149,12 +149,12 @@ function StudyScheduleTab() {
   }
 
   const pickerPapers = useMemo(
-    () => selectedSchedule ? subjects.filter(s => s.semesterId === selectedSchedule.semesterId) : [],
+    () => selectedSchedule ? subjects.filter(s => s.semester === selectedSchedule.semester) : [],
     [subjects, selectedSchedule]
   )
 
   const pickerLessons = useMemo(
-    () => pickerPaperId ? lessons.filter(l => l.subjectId === Number(pickerPaperId)) : [],
+    () => pickerPaperId ? lessons.filter(l => l.subject === Number(pickerPaperId)) : [],
     [lessons, pickerPaperId]
   )
 
@@ -212,7 +212,7 @@ function StudyScheduleTab() {
 
         {courses.map(course => {
           const isExpanded = expandedCourseId === course.id
-          const courseSemesters = semesters.filter(s => s.courseId === course.id)
+          const courseSemesters = semesters.filter(s => s.course === course.id)
           return (
             <div key={course.id} className="bg-white rounded-xl shadow-sm overflow-hidden">
               <button
@@ -231,7 +231,7 @@ function StudyScheduleTab() {
                     <div className="divide-y divide-gray-50">
                       {courseSemesters.map(sem => {
                         const schedule = courseSchedules.find(
-                          s => s.courseId === course.id && s.semesterId === sem.id
+                          s => s.course === course.id && s.semester === sem.id
                         )
                         const isActive = activeCourseId === course.id && activeSemesterId === sem.id
                         return (
@@ -248,7 +248,7 @@ function StudyScheduleTab() {
                               </p>
                               {schedule ? (
                                 <p className="text-xs text-gray-400 mt-0.5">
-                                  {formatMonthYear(schedule.startDate)} – {formatMonthYear(schedule.endDate)}
+                                  {formatMonthYear(schedule.start_date)} – {formatMonthYear(schedule.end_date)}
                                 </p>
                               ) : (
                                 <p className="text-xs text-gray-400 italic mt-0.5">Not set up</p>
@@ -302,10 +302,10 @@ function StudyScheduleTab() {
             {/* Header */}
             <div className="p-4 border-b border-gray-100 flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="info">{selectedSchedule.courseName}</Badge>
-                <Badge variant="default">{selectedSchedule.semesterName}</Badge>
+                <Badge variant="info">{selectedSchedule.course_title}</Badge>
+                <Badge variant="default">{selectedSchedule.semester_name}</Badge>
                 <span className="text-sm text-gray-500">
-                  {formatMonthYear(selectedSchedule.startDate)} – {formatMonthYear(selectedSchedule.endDate)}
+                  {formatMonthYear(selectedSchedule.start_date)} – {formatMonthYear(selectedSchedule.end_date)}
                 </span>
                 <span className="text-xs text-gray-400">({selectedSchedule.weeks} weeks)</span>
               </div>
@@ -518,18 +518,18 @@ function EventsTab() {
   const [eForm, setEForm] = useState(emptyForm)
 
   const formSemesters = useMemo(
-    () => semesters.filter(s => s.courseId === Number(eForm.courseId)),
+    () => semesters.filter(s => s.course === Number(eForm.courseId)),
     [semesters, eForm.courseId]
   )
   const formPapers = useMemo(
-    () => subjects.filter(s => s.semesterId === Number(eForm.semesterId)),
+    () => subjects.filter(s => s.semester === Number(eForm.semesterId)),
     [subjects, eForm.semesterId]
   )
 
   const filteredEvents = useMemo(() => {
     let list = [...events]
     if (typeFilter !== 'All') list = list.filter(e => e.type === typeFilter)
-    if (courseFilter) list = list.filter(e => e.courseId === Number(courseFilter))
+    if (courseFilter) list = list.filter(e => e.course === Number(courseFilter))
     return list.sort((a, b) => a.date.localeCompare(b.date))
   }, [events, typeFilter, courseFilter])
 
@@ -556,15 +556,15 @@ function EventsTab() {
     setEForm({
       title: ev.title,
       type: ev.type,
-      courseId: ev.courseId ? String(ev.courseId) : '',
-      semesterId: ev.semesterId ? String(ev.semesterId) : '',
-      paperId: ev.paperId ? String(ev.paperId) : '',
-      teacherId: ev.teacherId ? String(ev.teacherId) : '',
+      courseId: ev.course ? String(ev.course) : '',
+      semesterId: ev.semester ? String(ev.semester) : '',
+      paperId: ev.subject ? String(ev.subject) : '',
+      teacherId: ev.teacher ? String(ev.teacher) : '',
       date: ev.date,
-      startTime: ev.startTime,
-      endTime: ev.endTime,
+      startTime: ev.start_time,
+      endTime: ev.end_time,
       link: ev.link || '',
-      targetStudents: ev.targetStudents || 'all',
+      targetStudents: ev.target_students || 'all',
     })
     setDetailEvent(null)
     setEventModalOpen(true)
@@ -594,10 +594,10 @@ function EventsTab() {
       subject: payload.paperId || null,
       teacher: payload.teacherId || null,
       date: payload.date,
-      startTime: payload.startTime,
-      endTime: payload.endTime,
+      start_time: payload.startTime,
+      end_time: payload.endTime,
       link: payload.link || '',
-      targetStudents: payload.targetStudents || 'all',
+      target_students: payload.targetStudents || 'all',
     }
     if (editEvent) {
       const result = await dispatch(updateEventThunk({ id: editEvent.id, data: apiPayload }))
@@ -673,7 +673,7 @@ function EventsTab() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {filteredEvents.map(ev => {
-              const paper = subjects.find(s => s.id === ev.paperId)
+              const paper = subjects.find(s => s.id === ev.subject)
               const typeColor =
                 ev.type === 'LiveClass' ? 'bg-blue-50 text-blue-500' :
                 ev.type === 'Exam' ? 'bg-red-50 text-red-500' :
@@ -692,7 +692,7 @@ function EventsTab() {
                   </div>
                   <div className="flex items-center gap-1.5 text-xs text-gray-500">
                     <Bell className="h-3.5 w-3.5 text-gray-400 shrink-0" />
-                    <span>{ev.date} · {ev.startTime}{ev.endTime !== ev.startTime ? ` – ${ev.endTime}` : ''}</span>
+                    <span>{ev.date} · {ev.start_time}{ev.end_time !== ev.start_time ? ` – ${ev.end_time}` : ''}</span>
                   </div>
                   <div className="flex items-center justify-between pt-1 border-t border-gray-50">
                     <button onClick={() => openEdit(ev)} className="text-xs text-gray-400 hover:text-gray-600">
@@ -728,9 +728,9 @@ function EventsTab() {
             <p className="text-lg font-semibold text-gray-900">{detailEvent.title}</p>
             <div className="text-sm text-gray-600 space-y-1">
               <p><span className="font-medium">Date:</span> {detailEvent.date}</p>
-              <p><span className="font-medium">Time:</span> {detailEvent.startTime} – {detailEvent.endTime}</p>
-              {detailEvent.courseName && <p><span className="font-medium">Course:</span> {detailEvent.courseName}</p>}
-              {detailEvent.teacherName && <p><span className="font-medium">Teacher:</span> {detailEvent.teacherName}</p>}
+              <p><span className="font-medium">Time:</span> {detailEvent.start_time} – {detailEvent.end_time}</p>
+              {detailEvent.course_title && <p><span className="font-medium">Course:</span> {detailEvent.course_title}</p>}
+              {detailEvent.teacher_name && <p><span className="font-medium">Teacher:</span> {detailEvent.teacher_name}</p>}
               {detailEvent.link && (
                 <p>
                   <span className="font-medium">Link: </span>

@@ -55,10 +55,10 @@ export default function DashboardPage() {
     <PageWrapper title="Dashboard">
       {/* Stats row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard icon={Users} label="Total Students" value={stats?.totalStudents} color="bg-indigo-100 text-indigo-600" />
-        <StatCard icon={BookOpen} label="Active Enrollments" value={stats?.activeEnrollments} color="bg-emerald-100 text-emerald-600" />
-        <StatCard icon={GraduationCap} label="Total Courses" value={stats?.totalCourses} color="bg-amber-100 text-amber-600" />
-        <StatCard icon={UserCheck} label="Total Teachers" value={stats?.totalTeachers} color="bg-purple-100 text-purple-600" />
+        <StatCard icon={Users} label="Total Students" value={stats?.total_students} color="bg-indigo-100 text-indigo-600" />
+        <StatCard icon={BookOpen} label="Active Enrollments" value={stats?.active_enrollments} color="bg-emerald-100 text-emerald-600" />
+        <StatCard icon={GraduationCap} label="Total Courses" value={stats?.total_courses} color="bg-amber-100 text-amber-600" />
+        <StatCard icon={UserCheck} label="Total Teachers" value={stats?.total_teachers} color="bg-purple-100 text-purple-600" />
       </div>
 
       {/* Recent Enrollments */}
@@ -76,10 +76,10 @@ export default function DashboardPage() {
             <tbody className="divide-y divide-gray-50">
               {recentEnrollments.map(e => (
                 <tr key={e.id} className="hover:bg-gray-50 transition">
-                  <td className="px-4 py-3 text-sm font-medium text-gray-900">{e.studentName}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{e.courseName}</td>
+                  <td className="px-4 py-3 text-sm font-medium text-gray-900">{e.student_name}</td>
+                  <td className="px-4 py-3 text-sm text-gray-600">{e.course_title}</td>
                   <td className="px-4 py-3"><Badge variant={statusVariant[e.status]}>{e.status}</Badge></td>
-                  <td className="px-4 py-3 text-sm text-gray-500">{formatDate(e.paymentDate)}</td>
+                  <td className="px-4 py-3 text-sm text-gray-500">{formatDate(e.payment_date)}</td>
                 </tr>
               ))}
               {recentEnrollments.length === 0 && (

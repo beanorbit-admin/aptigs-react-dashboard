@@ -58,7 +58,7 @@ export default function StudentDetail() {
   const onEditSave = async (data) => {
     const result = await dispatch(updateStudentThunk({
       id: student.id,
-      data: { firstName: data.firstName, lastName: data.lastName, email: data.email, countryCode: data.countryCode, phone: data.phone, place: data.place },
+      data: { first_name: data.first_name, last_name: data.last_name, email: data.email, country_code: data.country_code, phone: data.phone, place: data.place },
     }))
     if (result.meta.requestStatus === 'fulfilled') { toast.success('Student updated'); setEditOpen(false) }
     else toast.error('Failed to update')
@@ -75,10 +75,10 @@ export default function StudentDetail() {
     const result = await dispatch(createEnrollmentThunk({
       student: student.id,
       course: selectedCourse.id,
-      courseFee: selectedCourse.fee,
-      collectedAmount: 0,
-      enrollmentType: 'direct',
-      accessStatus: 'granted',
+      course_fee: selectedCourse.fee,
+      collected_amount: 0,
+      enrollment_type: 'direct',
+      access_status: 'granted',
     }))
     if (result.meta.requestStatus === 'fulfilled') {
       toast.success(`Enrolled in ${selectedCourse.title}`)
@@ -91,13 +91,13 @@ export default function StudentDetail() {
   }
 
   const enrollColumns = [
-    { header: 'Course', cell: e => <span className="font-medium text-gray-900">{e.courseName}</span> },
-    { header: 'Category', cell: e => courses.find(c => c.id === e.courseId)?.category || '—' },
-    { header: 'Fee', cell: e => formatCurrency(e.courseFee) },
-    { header: 'Collected', cell: e => formatCurrency(e.collectedAmount) },
-    { header: 'Balance', cell: e => formatCurrency(e.courseFee - e.collectedAmount) },
+    { header: 'Course', cell: e => <span className="font-medium text-gray-900">{e.course_title}</span> },
+    { header: 'Category', cell: e => courses.find(c => c.id === e.course)?.category || '—' },
+    { header: 'Fee', cell: e => formatCurrency(e.course_fee) },
+    { header: 'Collected', cell: e => formatCurrency(e.collected_amount) },
+    { header: 'Balance', cell: e => formatCurrency(e.course_fee - e.collected_amount) },
     { header: 'Status', cell: e => <Badge variant={statusVariant[e.status]}>{e.status}</Badge> },
-    { header: 'Date', cell: e => formatDate(e.paymentDate) },
+    { header: 'Date', cell: e => formatDate(e.payment_date) },
   ]
 
   return (
@@ -114,15 +114,15 @@ export default function StudentDetail() {
         <div className="flex-1">
           <h2 className="text-xl font-bold text-gray-900">{student.name}</h2>
           <p className="text-sm text-gray-500">{student.email}</p>
-          <p className="text-sm text-gray-500">{student.countryCode} {student.phone}</p>
+          <p className="text-sm text-gray-500">{student.country_code} {student.phone}</p>
           {student.place && <p className="text-sm text-gray-500">{student.place}</p>}
         </div>
         <div className="flex gap-3">
           <Button variant="secondary" size="sm" onClick={() => { reset({
-            firstName: student.firstName || student.name.split(' ')[0],
-            lastName: student.lastName || student.name.split(' ').slice(1).join(' '),
+            first_name: student.first_name || student.name?.split(' ')[0] || '',
+            last_name: student.last_name || student.name?.split(' ').slice(1).join(' ') || '',
             email: student.email,
-            countryCode: student.countryCode || '+91',
+            country_code: student.country_code || '+91',
             phone: student.phone,
             place: student.place || '',
           }); setEditOpen(true) }}>
@@ -153,17 +153,17 @@ export default function StudentDetail() {
           <div className="grid grid-cols-2 gap-4">
             <Input
               label="First Name"
-              name="firstName"
+              name="first_name"
               placeholder="First name"
-              error={errors.firstName?.message}
-              {...register('firstName', { required: 'Required' })}
+              error={errors.first_name?.message}
+              register={n => register(n, { required: 'Required' })}
             />
             <Input
               label="Last Name"
-              name="lastName"
+              name="last_name"
               placeholder="Last name"
-              error={errors.lastName?.message}
-              {...register('lastName', { required: 'Required' })}
+              error={errors.last_name?.message}
+              register={n => register(n, { required: 'Required' })}
             />
           </div>
           <Input
@@ -171,13 +171,13 @@ export default function StudentDetail() {
             name="email"
             type="email"
             error={errors.email?.message}
-            {...register('email', { required: 'Required' })}
+            register={n => register(n, { required: 'Required' })}
           />
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-gray-700">Phone</label>
             <div className="flex gap-2">
               <select
-                {...register('countryCode')}
+                {...register('country_code')}
                 className="border border-gray-300 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-24"
               >
                 {COUNTRY_CODES.map(c => <option key={c}>{c}</option>)}
@@ -193,7 +193,7 @@ export default function StudentDetail() {
             label="Place"
             name="place"
             placeholder="City / Location"
-            {...register('place')}
+            register={n => register(n)}
           />
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="secondary" type="button" onClick={() => setEditOpen(false)}>Cancel</Button>

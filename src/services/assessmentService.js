@@ -33,7 +33,7 @@ export const deleteQuiz = (id) =>
   api.delete(`quizzes/${id}/`)
 
 export const addQuestionsToQuiz = (quizId, questionIds) =>
-  api.post(`quizzes/${quizId}/add-questions/`, { questionIds }).then(r => r.data)
+  api.post(`quizzes/${quizId}/add-questions/`, { question_ids: questionIds }).then(r => r.data)
 
 export const removeQuestionFromQuiz = (quizId, questionId) =>
   api.delete(`quizzes/${quizId}/questions/${questionId}/`)

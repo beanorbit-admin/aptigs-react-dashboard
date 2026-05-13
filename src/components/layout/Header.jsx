@@ -17,7 +17,7 @@ export default function Header({ title }) {
   const dispatch = useAppDispatch()
   const { role, user } = useAppSelector(state => state.auth)
   const notifications = useAppSelector(state => state.notifications.list)
-  const unreadCount = notifications.filter(n => !n.read).length
+  const unreadCount = notifications.filter(n => !n.is_read).length
   const recent = notifications.slice(0, 5)
   const displayName = user?.name || (role === 'admin' ? 'Admin User' : 'Teacher')
 
@@ -62,10 +62,10 @@ export default function Header({ title }) {
                     <button
                       key={n.id}
                       onClick={() => { dispatch(markAsRead(n.id)); setDropdownOpen(false) }}
-                      className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition ${!n.read ? 'border-l-2 border-indigo-500' : ''}`}
+                      className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition ${!n.is_read ? 'border-l-2 border-indigo-500' : ''}`}
                     >
-                      <p className={`text-sm ${!n.read ? 'font-semibold text-gray-900' : 'text-gray-700'}`}>{n.title}</p>
-                      <p className="text-xs text-gray-500 mt-0.5">{formatDistanceToNow(n.createdAt)}</p>
+                      <p className={`text-sm ${!n.is_read ? 'font-semibold text-gray-900' : 'text-gray-700'}`}>{n.title}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">{formatDistanceToNow(n.created_at)}</p>
                     </button>
                   ))
                 )}

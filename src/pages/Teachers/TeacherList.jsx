@@ -85,7 +85,7 @@ export default function TeacherList() {
   const openEdit = (t) => {
     setEditTarget(t)
     setCredentials(null)
-    setCourseIds(t.courseIds || [])
+    setCourseIds([])
     setIsActive(t.status === 'Active')
     reset({ name: t.name, email: t.email, phone: t.phone, password: '' })
     setModalOpen(true)
@@ -98,10 +98,10 @@ export default function TeacherList() {
 
   const onSave = async (data) => {
     const payload = {
-      firstName: data.name.split(' ')[0],
-      lastName: data.name.split(' ').slice(1).join(' ') || '',
+      first_name: data.name.split(' ')[0],
+      last_name: data.name.split(' ').slice(1).join(' ') || '',
       email: data.email,
-      countryCode: '+91',
+      country_code: '+91',
       phone: data.phone,
       status: isActive ? 'Active' : 'Inactive',
       password: data.password || undefined,
@@ -131,19 +131,7 @@ export default function TeacherList() {
   const columns = [
     { header: 'Name', cell: t => <span className="font-medium text-gray-900">{t.name}</span> },
     { header: 'Email', accessor: 'email' },
-    { header: 'Phone', cell: t => <span className="text-sm text-gray-700">{t.countryCode || '+91'} {t.phone}</span> },
-    {
-      header: 'Courses',
-      cell: t => (
-        <div className="flex flex-wrap gap-1">
-          {(t.courseIds || []).map(cid => {
-            const c = courses.find(c => c.id === cid)
-            return c ? <Badge key={cid} variant="info">{c.title}</Badge> : null
-          })}
-          {(!t.courseIds || t.courseIds.length === 0) && <span className="text-xs text-gray-400">None</span>}
-        </div>
-      ),
-    },
+    { header: 'Phone', cell: t => <span className="text-sm text-gray-700">{t.country_code || '+91'} {t.phone}</span> },
     {
       header: 'Status',
       cell: t => <Badge variant={t.status === 'Active' ? 'success' : 'default'}>{t.status}</Badge>,

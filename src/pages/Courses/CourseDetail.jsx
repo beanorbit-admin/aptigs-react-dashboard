@@ -19,7 +19,7 @@ export default function CourseDetail() {
   const dispatch = useAppDispatch()
   const course = useAppSelector(state => state.courses.list.find(c => c.id === Number(id)))
   const teachers = useAppSelector(state => state.teachers.list)
-  const enrollments = useAppSelector(state => state.enrollments.list.filter(e => e.courseId === Number(id)))
+  const enrollments = useAppSelector(state => state.enrollments.list.filter(e => e.course === Number(id)))
   const students = useAppSelector(state => state.students.list)
 
   useEffect(() => {
@@ -35,12 +35,12 @@ export default function CourseDetail() {
     </PageWrapper>
   )
 
-  const assignedTeachers = teachers.filter(t => course.teacherIds?.includes(t.id))
-  const enrolledStudents = enrollments.map(e => ({ ...e, student: students.find(s => s.id === e.studentId) }))
+  const assignedTeachers = teachers.filter(t => course.teacher_ids?.includes(t.id))
+  const enrolledStudents = enrollments.map(e => ({ ...e, studentObj: students.find(s => s.id === e.student) }))
 
   const removeTeacher = async (tid) => {
-    const newIds = (course.teacherIds || []).filter(x => x !== tid)
-    const result = await dispatch(updateCourseThunk({ id: course.id, data: { teacherIds: newIds } }))
+    const newIds = (course.teacher_ids || []).filter(x => x !== tid)
+    const result = await dispatch(updateCourseThunk({ id: course.id, data: { teacher_ids: newIds } }))
     if (result.meta.requestStatus === 'fulfilled') toast.success('Teacher removed')
     else toast.error('Remove failed')
   }
@@ -85,9 +85,9 @@ export default function CourseDetail() {
           ) : (
             <Table
               columns={[
-                { header: 'Student', cell: e => <span className="font-medium text-gray-900">{e.studentName}</span> },
-                { header: 'Email', cell: e => e.student?.email || '—' },
-                { header: 'Collected', cell: e => formatCurrency(e.collectedAmount) },
+                { header: 'Student', cell: e => <span className="font-medium text-gray-900">{e.student_name}</span> },
+                { header: 'Email', cell: e => e.studentObj?.email || '—' },
+                { header: 'Collected', cell: e => formatCurrency(e.collected_amount) },
                 {
                   header: 'Status',
                   cell: e => (

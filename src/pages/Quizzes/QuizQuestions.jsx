@@ -31,9 +31,9 @@ function QuestionForm({ form, onChange, onSave, onCancel, saveLabel }) {
     if (!plainText) { toast.error('Question text is required'); return }
     const base = { type: form.type, text: form.text, marks: Number(form.marks) || 1 }
     let payload
-    if (form.type === 'MCQ') payload = { ...base, options: form.options, correctOption: form.correctOption }
-    else if (form.type === 'FillBlank') payload = { ...base, correctAnswer: form.correctAnswer, hint: form.hint }
-    else payload = { ...base, correctAnswer: form.trueFalseAnswer }
+    if (form.type === 'MCQ') payload = { ...base, options: form.options, correct_option: form.correctOption }
+    else if (form.type === 'FillBlank') payload = { ...base, correct_answer: form.correctAnswer, hint: form.hint }
+    else payload = { ...base, correct_answer: form.trueFalseAnswer }
     onSave(payload)
   }
 
@@ -141,10 +141,12 @@ export default function QuizQuestions() {
     dispatch(fetchQuestionsThunk())
   }, [dispatch])
 
+  const quizQuestionIds = useMemo(() => (quiz?.quiz_questions || []).map(qq => qq.question.id), [quiz])
+
   const quizQuestions = useMemo(() => {
     if (!quiz) return []
-    return allQuestions.filter(q => quiz.questionIds.includes(q.id))
-  }, [allQuestions, quiz])
+    return allQuestions.filter(q => quizQuestionIds.includes(q.id))
+  }, [allQuestions, quizQuestionIds])
 
   const { rows, total } = useMemo(() => {
     const s = (query.search || '').toLowerCase()
@@ -173,10 +175,10 @@ export default function QuizQuestions() {
       text: q.text,
       marks: q.marks,
       options: q.options || ['', '', '', ''],
-      correctOption: q.correctOption ?? 0,
-      correctAnswer: typeof q.correctAnswer === 'string' ? q.correctAnswer : '',
+      correctOption: q.correct_option ?? 0,
+      correctAnswer: typeof q.correct_answer === 'string' ? q.correct_answer : '',
       hint: q.hint || '',
-      trueFalseAnswer: typeof q.correctAnswer === 'boolean' ? q.correctAnswer : true,
+      trueFalseAnswer: typeof q.correct_answer === 'boolean' ? q.correct_answer : true,
     })
     setQuestionModal(q)
   }
@@ -301,19 +303,19 @@ export default function QuizQuestions() {
       {/* Quiz info card */}
       <div className="bg-white rounded-xl shadow-sm p-5 mb-6 flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-5">
-          {quiz.courseName && (
+          {quiz.course_title && (
             <div className="text-sm">
               <span className="text-gray-500">Course: </span>
-              <span className="font-medium text-gray-800">{quiz.courseName}</span>
+              <span className="font-medium text-gray-800">{quiz.course_title}</span>
             </div>
           )}
           <div className="text-sm">
             <span className="text-gray-500">Pass Score: </span>
-            <span className="font-medium text-gray-800">{quiz.passScore}%</span>
+            <span className="font-medium text-gray-800">{quiz.pass_score}%</span>
           </div>
           <div className="text-sm">
             <span className="text-gray-500">Timer: </span>
-            <span className="font-medium text-gray-800">{quiz.timerMinutes ? `${quiz.timerMinutes} min` : 'None'}</span>
+            <span className="font-medium text-gray-800">{quiz.timer_minutes ? `${quiz.timer_minutes} min` : 'None'}</span>
           </div>
           <div className="text-sm">
             <span className="text-gray-500">Attempts: </span>

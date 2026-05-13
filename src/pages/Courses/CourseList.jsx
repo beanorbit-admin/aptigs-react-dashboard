@@ -56,10 +56,9 @@ export default function CourseList() {
   const openEdit = (c) => { setEditTarget(c); setModalOpen(true) }
 
   const onSave = async (data) => {
-    const payload = { ...data, category: Number(data.categoryId), teacherIds: data.teacherIds || [] }
     const result = editTarget
-      ? await dispatch(updateCourseThunk({ id: editTarget.id, data: payload }))
-      : await dispatch(createCourseThunk(payload))
+      ? await dispatch(updateCourseThunk({ id: editTarget.id, data }))
+      : await dispatch(createCourseThunk(data))
     if (result.meta.requestStatus === 'fulfilled') {
       toast.success(editTarget ? 'Course updated' : 'Course added')
       setModalOpen(false)

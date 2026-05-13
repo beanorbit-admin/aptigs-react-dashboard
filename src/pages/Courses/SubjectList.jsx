@@ -45,7 +45,7 @@ export default function SubjectList() {
   const course   = courses.find(c => c.id === Number(courseId))
   const semester = semesters.find(s => s.id === Number(semesterId))
   const semSubjects = subjects
-    .filter(s => s.semesterId === Number(semesterId))
+    .filter(s => s.semester === Number(semesterId))
     .sort((a, b) => a.order - b.order)
 
   const visibleSubjects = useMemo(() => {
@@ -55,7 +55,7 @@ export default function SubjectList() {
     )
   }, [semSubjects, search])
 
-  const chapterCount = (subId) => chapters.filter(c => c.subjectId === subId).length
+  const chapterCount = (subId) => chapters.filter(c => c.subject === subId).length
 
   const openAdd  = () => { setEditTarget(null); reset({ name: '', description: '' }); setModalOpen(true) }
   const openEdit = (sub) => { setEditTarget(sub); reset({ name: sub.name, description: sub.description }); setModalOpen(true) }
@@ -67,6 +67,7 @@ export default function SubjectList() {
     } else {
       result = await dispatch(createSubjectThunk({
         semester: Number(semesterId),
+        course: Number(courseId),
         name: data.name,
         description: data.description,
         order: semSubjects.length + 1,
@@ -198,7 +199,7 @@ export default function SubjectList() {
             name="name"
             placeholder="e.g. Introduction to Programming"
             error={errors.name?.message}
-            {...register('name', { required: 'Name is required' })}
+            register={n => register(n, { required: 'Name is required' })}
           />
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-gray-700">Description</label>

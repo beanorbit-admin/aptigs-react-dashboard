@@ -49,7 +49,7 @@ export default function ChapterSubjectView() {
   const subject  = subjects.find(s => s.id === Number(subjectId))
 
   const subjectChapters = chapters
-    .filter(c => c.subjectId === Number(subjectId))
+    .filter(c => c.subject === Number(subjectId))
     .sort((a, b) => a.order - b.order)
 
   const visibleChapters = useMemo(() => {
@@ -59,7 +59,7 @@ export default function ChapterSubjectView() {
     )
   }, [subjectChapters, search])
 
-  const lessonCount = (chId) => lessons.filter(l => l.chapterId === chId).length
+  const lessonCount = (chId) => lessons.filter(l => l.chapter === chId).length
 
   const openAdd  = () => { setEditTarget(null); reset({ name: '', description: '' }); setModalOpen(true) }
   const openEdit = (ch) => { setEditTarget(ch); reset({ name: ch.name, description: ch.description }); setModalOpen(true) }
@@ -71,6 +71,8 @@ export default function ChapterSubjectView() {
     } else {
       result = await dispatch(createChapterThunk({
         subject: Number(subjectId),
+        semester: Number(semesterId),
+        course: Number(courseId),
         name: data.name,
         description: data.description,
         order: subjectChapters.length + 1,
@@ -206,7 +208,7 @@ export default function ChapterSubjectView() {
             name="name"
             placeholder="e.g. Introduction to C"
             error={errors.name?.message}
-            {...register('name', { required: 'Name is required' })}
+            register={n => register(n, { required: 'Name is required' })}
           />
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-gray-700">Description</label>

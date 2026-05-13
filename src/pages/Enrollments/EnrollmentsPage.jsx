@@ -47,14 +47,14 @@ export default function EnrollmentsPage() {
 
   // --- Pending requests ---
   const pendingEnrollments = useMemo(
-    () => enrollments.filter(e => e.accessStatus === 'pending_approval'),
+    () => enrollments.filter(e => e.access_status === 'pending_approval'),
     [enrollments]
   )
 
   const { rows: pendingRows, total: pendingTotal } = useMemo(() => {
     const s = (pendingQuery.search || '').toLowerCase()
     const filtered = s
-      ? pendingEnrollments.filter(e => e.studentName.toLowerCase().includes(s))
+      ? pendingEnrollments.filter(e => (e.student_name || '').toLowerCase().includes(s))
       : pendingEnrollments
     return {
       rows: filtered.slice((pendingQuery.page - 1) * PAGE_SIZE, pendingQuery.page * PAGE_SIZE),
@@ -73,20 +73,20 @@ export default function EnrollmentsPage() {
     const result = await dispatch(updateEnrollmentThunk({
       id: approveTarget.id,
       data: {
-        accessStatus: 'granted',
-        enrollmentType: 'direct',
-        collectedAmount: Number(approveForm.collectedAmount) || 0,
-        paymentDate: approveForm.paymentDate || null,
+        access_status: 'granted',
+        enrollment_type: 'direct',
+        collected_amount: Number(approveForm.collectedAmount) || 0,
+        payment_date: approveForm.paymentDate || null,
       },
     }))
-    if (result.meta.requestStatus === 'fulfilled') toast.success(`${approveTarget.studentName} approved and access granted`)
+    if (result.meta.requestStatus === 'fulfilled') toast.success(`${approveTarget.student_name} approved and access granted`)
     else toast.error('Approval failed')
     setApproveTarget(null)
   }
 
   const onReject = async () => {
     const result = await dispatch(deleteEnrollmentThunk(rejectTarget.id))
-    if (result.meta.requestStatus === 'fulfilled') toast.success(`Enrollment request for ${rejectTarget.studentName} rejected`)
+    if (result.meta.requestStatus === 'fulfilled') toast.success(`Enrollment request for ${rejectTarget.student_name} rejected`)
     else toast.error('Rejection failed')
     setRejectTarget(null)
   }
@@ -95,14 +95,14 @@ export default function EnrollmentsPage() {
     {
       header: 'Student',
       cell: e => (
-        <button onClick={() => navigate(`/students/${e.studentId}`)} className="text-indigo-600 hover:underline font-medium text-sm">
-          {e.studentName}
+        <button onClick={() => navigate(`/students/${e.student}`)} className="text-indigo-600 hover:underline font-medium text-sm">
+          {e.student_name}
         </button>
       ),
     },
-    { header: 'Course', accessor: 'courseName' },
-    { header: 'Course Fee', cell: e => formatCurrency(e.courseFee) },
-    { header: 'Applied On', cell: e => formatDate(e.appliedDate) },
+    { header: 'Course', accessor: 'course_title' },
+    { header: 'Course Fee', cell: e => formatCurrency(e.course_fee) },
+    { header: 'Applied On', cell: e => formatDate(e.created_at) },
     {
       header: 'Actions',
       cell: e => (
@@ -128,7 +128,7 @@ export default function EnrollmentsPage() {
 
   // --- Active enrollments ---
   const activeEnrollments = useMemo(
-    () => enrollments.filter(e => e.accessStatus === 'granted'),
+    () => enrollments.filter(e => e.access_status === 'granted'),
     [enrollments]
   )
 
@@ -136,7 +136,7 @@ export default function EnrollmentsPage() {
     const s = (activeQuery.search || '').toLowerCase()
     const { status = 'All' } = activeQuery.filters || {}
     const filtered = activeEnrollments.filter(e => {
-      if (s && !e.studentName.toLowerCase().includes(s)) return false
+      if (s && !(e.student_name || '').toLowerCase().includes(s)) return false
       if (status !== 'All' && e.status !== status) return false
       return true
     })
@@ -150,15 +150,15 @@ export default function EnrollmentsPage() {
 
   const openEdit = (e) => {
     setEditTarget(e)
-    setEditForm({ collectedAmount: e.collectedAmount, paymentDate: e.paymentDate || '' })
+    setEditForm({ collectedAmount: e.collected_amount, paymentDate: e.payment_date || '' })
   }
 
   const onSaveEdit = async () => {
     const result = await dispatch(updateEnrollmentThunk({
       id: editTarget.id,
       data: {
-        collectedAmount: Number(editForm.collectedAmount),
-        paymentDate: editForm.paymentDate || null,
+        collected_amount: Number(editForm.collectedAmount),
+        payment_date: editForm.paymentDate || null,
       },
     }))
     if (result.meta.requestStatus === 'fulfilled') toast.success('Payment details updated')
@@ -170,16 +170,16 @@ export default function EnrollmentsPage() {
     {
       header: 'Student',
       cell: e => (
-        <button onClick={() => navigate(`/students/${e.studentId}`)} className="text-indigo-600 hover:underline font-medium text-sm">
-          {e.studentName}
+        <button onClick={() => navigate(`/students/${e.student}`)} className="text-indigo-600 hover:underline font-medium text-sm">
+          {e.student_name}
         </button>
       ),
     },
-    { header: 'Course', accessor: 'courseName' },
-    { header: 'Course Fee', cell: e => formatCurrency(e.courseFee) },
-    { header: 'Collected', cell: e => formatCurrency(e.collectedAmount) },
-    { header: 'Balance', cell: e => formatCurrency(e.courseFee - e.collectedAmount) },
-    { header: 'Payment Date', cell: e => formatDate(e.paymentDate) },
+    { header: 'Course', accessor: 'course_title' },
+    { header: 'Course Fee', cell: e => formatCurrency(e.course_fee) },
+    { header: 'Collected', cell: e => formatCurrency(e.collected_amount) },
+    { header: 'Balance', cell: e => formatCurrency(e.course_fee - e.collected_amount) },
+    { header: 'Payment Date', cell: e => formatDate(e.payment_date) },
     {
       header: 'Payment Status',
       cell: e => <Badge variant={statusVariant[e.status]}>{e.status}</Badge>,
@@ -270,15 +270,15 @@ export default function EnrollmentsPage() {
         {approveTarget && (
           <div className="space-y-4">
             <div className="bg-indigo-50 rounded-lg px-4 py-3 space-y-1">
-              <p className="text-sm font-medium text-indigo-900">{approveTarget.studentName}</p>
-              <p className="text-sm text-indigo-700">{approveTarget.courseName}</p>
+              <p className="text-sm font-medium text-indigo-900">{approveTarget.student_name}</p>
+              <p className="text-sm text-indigo-700">{approveTarget.course_title}</p>
             </div>
 
             <div>
               <label className="text-sm font-medium text-gray-700 block mb-1">Course Fee</label>
               <input
                 readOnly
-                value={formatCurrency(approveTarget.courseFee)}
+                value={formatCurrency(approveTarget.course_fee)}
                 className="w-full border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-500"
               />
             </div>
@@ -288,7 +288,7 @@ export default function EnrollmentsPage() {
               <input
                 type="number"
                 min="0"
-                max={approveTarget.courseFee}
+                max={approveTarget.course_fee}
                 placeholder="0"
                 value={approveForm.collectedAmount}
                 onChange={e => setApproveForm(f => ({ ...f, collectedAmount: e.target.value }))}
@@ -309,8 +309,8 @@ export default function EnrollmentsPage() {
 
             <div className="bg-gray-50 rounded-lg px-3 py-2 flex items-center justify-between text-sm text-gray-600">
               <span>Payment status after approval:</span>
-              <Badge variant={statusVariant[calcStatus(approveTarget.courseFee, approveForm.collectedAmount)]}>
-                {calcStatus(approveTarget.courseFee, approveForm.collectedAmount)}
+              <Badge variant={statusVariant[calcStatus(approveTarget.course_fee, approveForm.collectedAmount)]}>
+                {calcStatus(approveTarget.course_fee, approveForm.collectedAmount)}
               </Badge>
             </div>
 
@@ -327,10 +327,10 @@ export default function EnrollmentsPage() {
       {/* Reject Confirm Modal */}
       <Modal isOpen={!!rejectTarget} onClose={() => setRejectTarget(null)} title="Reject Request" size="sm">
         <p className="text-sm text-gray-600 mb-2">
-          Reject enrollment request for <strong>{rejectTarget?.studentName}</strong>?
+          Reject enrollment request for <strong>{rejectTarget?.student_name}</strong>?
         </p>
         <p className="text-xs text-gray-400 mb-6">
-          Course: {rejectTarget?.courseName}. This request will be removed permanently.
+          Course: {rejectTarget?.course_title}. This request will be removed permanently.
         </p>
         <div className="flex justify-end gap-3">
           <Button variant="secondary" onClick={() => setRejectTarget(null)}>Cancel</Button>
@@ -344,14 +344,14 @@ export default function EnrollmentsPage() {
           <div className="space-y-4">
             <div>
               <label className="text-sm font-medium text-gray-700 block mb-1">Course Fee</label>
-              <input readOnly value={formatCurrency(editTarget.courseFee)} className="w-full border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-500" />
+              <input readOnly value={formatCurrency(editTarget.course_fee)} className="w-full border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-500" />
             </div>
             <div>
               <label className="text-sm font-medium text-gray-700 block mb-1">Collected Amount (₹)</label>
               <input
                 type="number"
                 min="0"
-                max={editTarget.courseFee}
+                max={editTarget.course_fee}
                 value={editForm.collectedAmount}
                 onChange={e => setEditForm(f => ({ ...f, collectedAmount: e.target.value }))}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -368,8 +368,8 @@ export default function EnrollmentsPage() {
             </div>
             <div className="bg-gray-50 rounded-lg px-3 py-2 flex items-center justify-between text-sm text-gray-600">
               <span>Auto status:</span>
-              <Badge variant={statusVariant[calcStatus(editTarget.courseFee, editForm.collectedAmount)]}>
-                {calcStatus(editTarget.courseFee, editForm.collectedAmount)}
+              <Badge variant={statusVariant[calcStatus(editTarget.course_fee, editForm.collectedAmount)]}>
+                {calcStatus(editTarget.course_fee, editForm.collectedAmount)}
               </Badge>
             </div>
             <div className="flex justify-end gap-3 pt-2">

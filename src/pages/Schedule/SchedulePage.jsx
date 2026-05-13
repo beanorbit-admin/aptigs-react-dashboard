@@ -48,7 +48,7 @@ export default function SchedulePage() {
   const openAdd = () => { setEditTarget(null); setForm(emptyForm); setModalOpen(true) }
   const openEdit = (e) => {
     setEditTarget(e)
-    setForm({ title: e.title, type: e.type, courseId: e.courseId || '', teacherId: e.teacherId || '', date: e.date, startTime: e.startTime, endTime: e.endTime, notes: e.notes || '' })
+    setForm({ title: e.title, type: e.type, courseId: e.course || '', teacherId: e.teacher || '', date: e.date, startTime: e.start_time, endTime: e.end_time, notes: e.notes || '' })
     setDetailTarget(null)
     setModalOpen(true)
   }
@@ -59,8 +59,8 @@ export default function SchedulePage() {
       title: form.title,
       type: form.type,
       date: form.date,
-      startTime: form.startTime,
-      endTime: form.endTime,
+      start_time: form.startTime,
+      end_time: form.endTime,
       notes: form.notes,
       ...(form.courseId ? { course: Number(form.courseId) } : {}),
       ...(form.teacherId ? { teacher: Number(form.teacherId) } : {}),
@@ -125,11 +125,11 @@ export default function SchedulePage() {
             columns={[
               { header: 'Title', cell: e => <span className="font-medium text-gray-900">{e.title}</span> },
               { header: 'Type', cell: e => <Badge variant={typeBadge[e.type]}>{e.type}</Badge> },
-              { header: 'Course', cell: e => e.courseName || '—' },
-              { header: 'Teacher', cell: e => e.teacherName || '—' },
+              { header: 'Course', cell: e => e.course_title || '—' },
+              { header: 'Teacher', cell: e => e.teacher_name || '—' },
               { header: 'Date', accessor: 'date' },
-              { header: 'Start', accessor: 'startTime' },
-              { header: 'End', accessor: 'endTime' },
+              { header: 'Start', accessor: 'start_time' },
+              { header: 'End', accessor: 'end_time' },
               {
                 header: 'Actions',
                 cell: e => (
@@ -153,9 +153,9 @@ export default function SchedulePage() {
             <p className="text-lg font-semibold text-gray-900">{detailTarget.title}</p>
             <div className="text-sm text-gray-600 space-y-1">
               <p><span className="font-medium">Date:</span> {detailTarget.date}</p>
-              <p><span className="font-medium">Time:</span> {detailTarget.startTime} – {detailTarget.endTime}</p>
-              {detailTarget.courseName && <p><span className="font-medium">Course:</span> {detailTarget.courseName}</p>}
-              {detailTarget.teacherName && <p><span className="font-medium">Teacher:</span> {detailTarget.teacherName}</p>}
+              <p><span className="font-medium">Time:</span> {detailTarget.start_time} – {detailTarget.end_time}</p>
+              {detailTarget.course_title && <p><span className="font-medium">Course:</span> {detailTarget.course_title}</p>}
+              {detailTarget.teacher_name && <p><span className="font-medium">Teacher:</span> {detailTarget.teacher_name}</p>}
               {detailTarget.notes && <p><span className="font-medium">Notes:</span> {detailTarget.notes}</p>}
             </div>
             <div className="flex justify-end gap-3 pt-2">

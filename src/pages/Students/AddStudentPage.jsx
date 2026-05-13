@@ -26,10 +26,10 @@ export default function AddStudentPage() {
     formState: { errors },
   } = useForm({
     defaultValues: {
-      firstName: '',
-      lastName: '',
+      first_name: '',
+      last_name: '',
       email: '',
-      countryCode: '+91',
+      country_code: '+91',
       phone: '',
       place: '',
       enroll: false,
@@ -51,10 +51,10 @@ export default function AddStudentPage() {
 
   const onSubmit = async (data) => {
     const result = await dispatch(createStudentThunk({
-      firstName: data.firstName,
-      lastName: data.lastName,
+      first_name: data.first_name,
+      last_name: data.last_name,
       email: data.email,
-      countryCode: data.countryCode,
+      country_code: data.country_code,
       phone: data.phone,
       place: data.place,
     }))
@@ -68,12 +68,12 @@ export default function AddStudentPage() {
       const enrollResult = await dispatch(createEnrollmentThunk({
         student: student.id,
         course: selectedCourse.id,
-        courseFee: selectedCourse.fee,
-        collectedAmount: 0,
-        accessStatus: data.accessType,
-        enrollmentType: data.accessType === 'granted' ? 'direct' : 'request',
+        course_fee: selectedCourse.fee,
+        collected_amount: 0,
+        access_status: data.accessType,
+        enrollment_type: data.accessType === 'granted' ? 'direct' : 'request',
       }))
-      const name = `${data.firstName} ${data.lastName}`
+      const name = `${data.first_name} ${data.last_name}`
       if (enrollResult.meta.requestStatus === 'fulfilled') {
         toast.success(data.accessType === 'granted' ? `${name} added and access granted` : `${name} added — enrollment pending approval`)
       } else {
@@ -104,17 +104,17 @@ export default function AddStudentPage() {
           <div className="grid grid-cols-2 gap-4">
             <Input
               label="First Name"
-              name="firstName"
+              name="first_name"
               placeholder="First name"
-              error={errors.firstName?.message}
-              {...register('firstName', { required: 'First name is required' })}
+              error={errors.first_name?.message}
+              register={n => register(n, { required: 'First name is required' })}
             />
             <Input
               label="Last Name"
-              name="lastName"
+              name="last_name"
               placeholder="Last name"
-              error={errors.lastName?.message}
-              {...register('lastName', { required: 'Last name is required' })}
+              error={errors.last_name?.message}
+              register={n => register(n, { required: 'Last name is required' })}
             />
           </div>
 
@@ -124,17 +124,14 @@ export default function AddStudentPage() {
             type="email"
             placeholder="email@example.com"
             error={errors.email?.message}
-            {...register('email', {
-              required: 'Email is required',
-              pattern: { value: /^\S+@\S+\.\S+$/, message: 'Invalid email address' },
-            })}
+            register={n => register(n, { required: 'Email is required', pattern: { value: /^\S+@\S+\.\S+$/, message: 'Invalid email address' } })}
           />
 
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-gray-700">Phone</label>
             <div className="flex gap-2">
               <select
-                {...register('countryCode')}
+                {...register('country_code')}
                 className="border border-gray-300 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-24"
               >
                 {COUNTRY_CODES.map(c => (
@@ -158,7 +155,7 @@ export default function AddStudentPage() {
             name="place"
             placeholder="City / Location"
             error={errors.place?.message}
-            {...register('place', { required: 'Place is required' })}
+            register={n => register(n, { required: 'Place is required' })}
           />
         </div>
 

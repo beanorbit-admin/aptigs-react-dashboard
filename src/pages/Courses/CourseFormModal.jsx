@@ -14,12 +14,12 @@ export default function CourseFormModal({ isOpen, onClose, onSave, editTarget, c
     if (editTarget) {
       setForm({
         title: editTarget.title || '',
-        categoryId: editTarget.categoryId || '',
+        categoryId: editTarget.category || '',
         description: editTarget.description || '',
         duration: editTarget.duration || '',
         fee: editTarget.fee || '',
         status: editTarget.status || 'Active',
-        teacherIds: editTarget.teacherIds || [],
+        teacherIds: editTarget.teacher_ids || [],
       })
     } else {
       setForm({ title: '', categoryId: '', description: '', duration: '', fee: '', status: 'Active', teacherIds: [] })
@@ -37,7 +37,7 @@ export default function CourseFormModal({ isOpen, onClose, onSave, editTarget, c
 
   const handleSave = () => {
     if (!form.title || !form.categoryId) return
-    onSave({ ...form, fee: Number(form.fee), categoryId: Number(form.categoryId) })
+    onSave({ title: form.title, description: form.description, duration: form.duration, status: form.status, fee: Number(form.fee), category: Number(form.categoryId), teacher_ids: form.teacherIds })
   }
 
   return (

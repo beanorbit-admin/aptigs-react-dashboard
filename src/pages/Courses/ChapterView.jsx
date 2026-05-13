@@ -23,16 +23,16 @@ const VIDEO_TYPE_VARIANTS = { youtube: 'danger', streaming: 'info', m3u8: 'purpl
 
 function LessonIcon({ lesson }) {
   if (lesson.type === 'pdf') return <FileText className="h-4 w-4 text-orange-500 flex-shrink-0" />
-  if (lesson.videoType === 'youtube') return <PlayCircle className="h-4 w-4 text-red-500 flex-shrink-0" />
-  if (lesson.videoType === 'streaming') return <Radio className="h-4 w-4 text-blue-500 flex-shrink-0" />
+  if (lesson.video_type === 'youtube') return <PlayCircle className="h-4 w-4 text-red-500 flex-shrink-0" />
+  if (lesson.video_type === 'streaming') return <Radio className="h-4 w-4 text-blue-500 flex-shrink-0" />
   return <Film className="h-4 w-4 text-purple-500 flex-shrink-0" />
 }
 
 function LessonBadge({ lesson }) {
   if (lesson.type === 'video') {
-    return <Badge variant={VIDEO_TYPE_VARIANTS[lesson.videoType]}>{VIDEO_TYPE_LABELS[lesson.videoType]}</Badge>
+    return <Badge variant={VIDEO_TYPE_VARIANTS[lesson.video_type]}>{VIDEO_TYPE_LABELS[lesson.video_type]}</Badge>
   }
-  if (lesson.isDownloadable) {
+  if (lesson.is_downloadable) {
     return (
       <span className="flex items-center gap-1 text-xs text-emerald-600">
         <Download className="h-3 w-3" /> Downloadable
@@ -72,43 +72,43 @@ export default function ChapterView() {
   const chapter  = chapters.find(c => c.id === Number(chapterId))
 
   const chLessons = lessons
-    .filter(l => l.chapterId === Number(chapterId))
+    .filter(l => l.chapter === Number(chapterId))
     .sort((a, b) => a.order - b.order)
 
   const openAdd = () => {
     setEditLesson(null)
     setLessonType('video')
     setVideoType('youtube')
-    lessonForm.reset({ name: '', videoKey: '', videoUrl: '', streamingPlatform: '', streamingKey: '', pdfUrl: '', isDownloadable: true })
+    lessonForm.reset({ name: '', video_key: '', video_url: '', streaming_platform: '', streaming_key: '', pdf_url: '', is_downloadable: true })
     setLessonModal(true)
   }
 
   const openEdit = (lesson) => {
     setEditLesson(lesson)
     setLessonType(lesson.type)
-    setVideoType(lesson.videoType || 'youtube')
+    setVideoType(lesson.video_type || 'youtube')
     lessonForm.reset({
       name: lesson.name,
-      videoKey: lesson.videoKey || '',
-      videoUrl: lesson.videoUrl || '',
-      streamingPlatform: lesson.streamingPlatform || '',
-      streamingKey: lesson.streamingKey || '',
-      pdfUrl: lesson.pdfUrl || '',
-      isDownloadable: lesson.isDownloadable ?? true,
+      video_key: lesson.video_key || '',
+      video_url: lesson.video_url || '',
+      streaming_platform: lesson.streaming_platform || '',
+      streaming_key: lesson.streaming_key || '',
+      pdf_url: lesson.pdf_url || '',
+      is_downloadable: lesson.is_downloadable ?? true,
     })
     setLessonModal(true)
   }
 
   const onSave = async (data) => {
-    const base = { chapter: Number(chapterId), name: data.name, type: lessonType, order: chLessons.length + 1 }
+    const base = { chapter: Number(chapterId), subject: Number(subjectId), semester: Number(semesterId), course: Number(courseId), name: data.name, type: lessonType, order: chLessons.length + 1 }
     const payload = lessonType === 'pdf'
-      ? { ...base, pdfUrl: data.pdfUrl, isDownloadable: !!data.isDownloadable }
+      ? { ...base, pdf_url: data.pdf_url, is_downloadable: !!data.is_downloadable }
       : {
           ...base,
-          videoType,
-          ...(videoType === 'youtube'   ? { videoKey: data.videoKey } : {}),
-          ...(videoType === 'm3u8'      ? { videoUrl: data.videoUrl } : {}),
-          ...(videoType === 'streaming' ? { streamingPlatform: data.streamingPlatform, streamingKey: data.streamingKey } : {}),
+          video_type: videoType,
+          ...(videoType === 'youtube'   ? { video_key: data.video_key } : {}),
+          ...(videoType === 'm3u8'      ? { video_url: data.video_url } : {}),
+          ...(videoType === 'streaming' ? { streaming_platform: data.streaming_platform, streaming_key: data.streaming_key } : {}),
         }
 
     let result
@@ -282,12 +282,12 @@ export default function ChapterView() {
                 <div className="flex flex-col gap-1">
                   <label className="text-sm font-medium text-gray-700">YouTube Video ID</label>
                   <input
-                    {...lessonForm.register('videoKey', { required: 'Video ID is required' })}
+                    {...lessonForm.register('video_key', { required: 'Video ID is required' })}
                     placeholder="e.g. dQw4w9WgXcQ"
                     className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
                   />
-                  {lessonForm.formState.errors.videoKey && (
-                    <p className="text-xs text-red-600">{lessonForm.formState.errors.videoKey.message}</p>
+                  {lessonForm.formState.errors.video_key && (
+                    <p className="text-xs text-red-600">{lessonForm.formState.errors.video_key.message}</p>
                   )}
                 </div>
               )}
@@ -296,12 +296,12 @@ export default function ChapterView() {
                 <div className="flex flex-col gap-1">
                   <label className="text-sm font-medium text-gray-700">M3U8 Stream URL</label>
                   <input
-                    {...lessonForm.register('videoUrl', { required: 'URL is required' })}
+                    {...lessonForm.register('video_url', { required: 'URL is required' })}
                     placeholder="https://stream.example.com/video.m3u8"
                     className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
-                  {lessonForm.formState.errors.videoUrl && (
-                    <p className="text-xs text-red-600">{lessonForm.formState.errors.videoUrl.message}</p>
+                  {lessonForm.formState.errors.video_url && (
+                    <p className="text-xs text-red-600">{lessonForm.formState.errors.video_url.message}</p>
                   )}
                 </div>
               )}
@@ -311,23 +311,23 @@ export default function ChapterView() {
                   <div className="flex flex-col gap-1">
                     <label className="text-sm font-medium text-gray-700">Platform Name</label>
                     <input
-                      {...lessonForm.register('streamingPlatform', { required: 'Platform is required' })}
+                      {...lessonForm.register('streaming_platform', { required: 'Platform is required' })}
                       placeholder="e.g. Vimeo, JW Player, Wistia"
                       className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
-                    {lessonForm.formState.errors.streamingPlatform && (
-                      <p className="text-xs text-red-600">{lessonForm.formState.errors.streamingPlatform.message}</p>
+                    {lessonForm.formState.errors.streaming_platform && (
+                      <p className="text-xs text-red-600">{lessonForm.formState.errors.streaming_platform.message}</p>
                     )}
                   </div>
                   <div className="flex flex-col gap-1">
                     <label className="text-sm font-medium text-gray-700">Stream Key / Video ID</label>
                     <input
-                      {...lessonForm.register('streamingKey', { required: 'Stream key is required' })}
+                      {...lessonForm.register('streaming_key', { required: 'Stream key is required' })}
                       placeholder="e.g. abc123xyz"
                       className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
                     />
-                    {lessonForm.formState.errors.streamingKey && (
-                      <p className="text-xs text-red-600">{lessonForm.formState.errors.streamingKey.message}</p>
+                    {lessonForm.formState.errors.streaming_key && (
+                      <p className="text-xs text-red-600">{lessonForm.formState.errors.streaming_key.message}</p>
                     )}
                   </div>
                 </>
@@ -343,18 +343,18 @@ export default function ChapterView() {
                   <ExternalLink className="h-3.5 w-3.5" /> PDF URL
                 </label>
                 <input
-                  {...lessonForm.register('pdfUrl', { required: 'PDF URL is required' })}
+                  {...lessonForm.register('pdf_url', { required: 'PDF URL is required' })}
                   placeholder="https://example.com/document.pdf"
                   className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
-                {lessonForm.formState.errors.pdfUrl && (
-                  <p className="text-xs text-red-600">{lessonForm.formState.errors.pdfUrl.message}</p>
+                {lessonForm.formState.errors.pdf_url && (
+                  <p className="text-xs text-red-600">{lessonForm.formState.errors.pdf_url.message}</p>
                 )}
               </div>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
-                  {...lessonForm.register('isDownloadable')}
+                  {...lessonForm.register('is_downloadable')}
                   className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                 />
                 <div>

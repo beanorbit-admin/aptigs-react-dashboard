@@ -10,6 +10,7 @@ export default function Input({ label, name, type = 'text', placeholder, error, 
       )}
       <input
         id={name}
+        name={name}
         type={type}
         placeholder={placeholder}
         {...regProps}

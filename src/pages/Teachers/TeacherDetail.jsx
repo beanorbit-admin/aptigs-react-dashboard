@@ -1,14 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, X, Copy, RefreshCw } from 'lucide-react'
+import { ArrowLeft, Copy, RefreshCw } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PageWrapper from '../../components/layout/PageWrapper'
 import Button from '../../components/common/Button'
 import Badge from '../../components/common/Badge'
 import Modal from '../../components/common/Modal'
 import { useAppDispatch, useAppSelector } from '../../hooks/redux'
-import { fetchTeachersThunk, updateTeacherThunk, resetTeacherPasswordThunk } from '../../store/slices/teacherSlice'
-import { fetchCoursesThunk } from '../../store/slices/courseSlice'
+import { fetchTeachersThunk, resetTeacherPasswordThunk } from '../../store/slices/teacherSlice'
 
 function getInitials(name) {
   return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
@@ -23,15 +22,12 @@ export default function TeacherDetail() {
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
   const teacher = useAppSelector(state => state.teachers.list.find(t => t.id === Number(id)))
-  const courses = useAppSelector(state => state.courses.list)
 
   const [pwModal, setPwModal] = useState(false)
   const [newPw, setNewPw] = useState('')
-  const [addCourseId, setAddCourseId] = useState('')
 
   useEffect(() => {
     dispatch(fetchTeachersThunk())
-    dispatch(fetchCoursesThunk())
   }, [dispatch])
 
   if (!teacher) return (
@@ -39,24 +35,6 @@ export default function TeacherDetail() {
       <p className="text-gray-500">Teacher not found.</p>
     </PageWrapper>
   )
-
-  const assignedCourses = courses.filter(c => (teacher.courseIds || []).includes(c.id))
-  const unassigned = courses.filter(c => !(teacher.courseIds || []).includes(c.id))
-
-  const removeCourse = async (cid) => {
-    const newIds = (teacher.courseIds || []).filter(x => x !== cid)
-    const result = await dispatch(updateTeacherThunk({ id: teacher.id, data: { courseIds: newIds } }))
-    if (result.meta.requestStatus === 'fulfilled') toast.success('Course removed')
-    else toast.error('Remove failed')
-  }
-
-  const addCourse = async () => {
-    if (!addCourseId) return
-    const newIds = [...(teacher.courseIds || []), Number(addCourseId)]
-    const result = await dispatch(updateTeacherThunk({ id: teacher.id, data: { courseIds: newIds } }))
-    if (result.meta.requestStatus === 'fulfilled') { setAddCourseId(''); toast.success('Course added') }
-    else toast.error('Add failed')
-  }
 
   const resetPassword = async () => {
     const result = await dispatch(resetTeacherPasswordThunk(teacher.id))
@@ -82,7 +60,7 @@ export default function TeacherDetail() {
         <div className="flex-1">
           <h2 className="text-xl font-bold text-gray-900">{teacher.name}</h2>
           <p className="text-sm text-gray-500">{teacher.email}</p>
-          <p className="text-sm text-gray-500">{teacher.countryCode || '+91'} {teacher.phone}</p>
+          <p className="text-sm text-gray-500">{teacher.country_code || '+91'} {teacher.phone}</p>
         </div>
         <div className="flex items-center gap-3">
           <Badge variant={teacher.status === 'Active' ? 'success' : 'default'}>{teacher.status}</Badge>
@@ -92,37 +70,6 @@ export default function TeacherDetail() {
         </div>
       </div>
 
-      {/* Courses */}
-      <div className="bg-white rounded-xl shadow-sm p-6">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Assigned Courses</h3>
-        {assignedCourses.length === 0 ? (
-          <p className="text-sm text-gray-400 mb-4">No courses assigned</p>
-        ) : (
-          <ul className="space-y-2 mb-4">
-            {assignedCourses.map(c => (
-              <li key={c.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-3">
-                <div>
-                  <span className="text-sm font-medium text-gray-900">{c.title}</span>
-                  <span className="text-xs text-gray-500 ml-2">{c.category}</span>
-                </div>
-                <button onClick={() => removeCourse(c.id)} className="text-red-500 hover:text-red-700">
-                  <X className="h-4 w-4" />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-        {unassigned.length > 0 && (
-          <div className="flex items-center gap-3">
-            <select value={addCourseId} onChange={e => setAddCourseId(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-              <option value="">Add a course...</option>
-              {unassigned.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
-            </select>
-            <Button size="sm" onClick={addCourse} disabled={!addCourseId}>Add</Button>
-          </div>
-        )}
-      </div>
 
       {/* Reset Password Modal */}
       <Modal isOpen={pwModal} onClose={() => setPwModal(false)} title="New Password" size="sm">

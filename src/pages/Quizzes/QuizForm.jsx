@@ -41,13 +41,13 @@ export default function QuizForm() {
     if (existing) {
       setForm({
         title: existing.title || '',
-        courseId: existing.courseId || '',
+        courseId: existing.course || '',
         description: existing.description || '',
-        timerEnabled: !!existing.timerMinutes,
-        timerMinutes: existing.timerMinutes || 30,
-        passScore: existing.passScore || 60,
+        timerEnabled: !!existing.timer_minutes,
+        timerMinutes: existing.timer_minutes || 30,
+        passScore: existing.pass_score || 60,
         attempts: existing.attempts || 2,
-        questionIds: existing.questionIds || [],
+        questionIds: (existing.quiz_questions || []).map(qq => qq.question.id),
       })
     }
   }, [existing])
@@ -74,8 +74,8 @@ export default function QuizForm() {
       title: form.title,
       course: Number(form.courseId),
       description: form.description,
-      timerMinutes: form.timerEnabled ? Number(form.timerMinutes) : 0,
-      passScore: Number(form.passScore),
+      timer_minutes: form.timerEnabled ? Number(form.timerMinutes) : 0,
+      pass_score: Number(form.passScore),
       attempts: Number(form.attempts),
       status,
     }

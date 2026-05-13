@@ -33,7 +33,7 @@ export default function QuizList() {
     const s = (query.search || '').toLowerCase()
     const { status = 'All' } = query.filters || {}
     const filtered = quizzes.filter(q => {
-      if (s && ![q.title, q.courseName].some(v => (v || '').toLowerCase().includes(s))) return false
+      if (s && ![q.title, q.course_title].some(v => (v || '').toLowerCase().includes(s))) return false
       if (status !== 'All' && q.status !== status) return false
       return true
     })
@@ -61,10 +61,10 @@ export default function QuizList() {
         </button>
       ),
     },
-    { header: 'Course', accessor: 'courseName' },
-    { header: 'Questions', accessor: 'totalQuestions' },
-    { header: 'Pass Score', cell: q => `${q.passScore}%` },
-    { header: 'Timer', cell: q => `${q.timerMinutes} min` },
+    { header: 'Course', accessor: 'course_title' },
+    { header: 'Questions', accessor: 'total_questions' },
+    { header: 'Pass Score', cell: q => `${q.pass_score}%` },
+    { header: 'Timer', cell: q => `${q.timer_minutes} min` },
     { header: 'Attempts', cell: q => q.attempts === 0 ? 'Unlimited' : q.attempts },
     {
       header: 'Status',

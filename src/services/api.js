@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 const api = axios.create({
-  baseURL: 'http://localhost:8000/api/v1/',
+  baseURL: 'http://localhost:8001/api/v1/',
   headers: { 'Content-Type': 'application/json' },
 })
 
@@ -42,7 +42,7 @@ api.interceptors.response.use(
         return Promise.reject(error)
       }
       try {
-        const { data } = await axios.post('http://localhost:8000/api/v1/auth/token/refresh/', { refresh })
+        const { data } = await axios.post('http://localhost:8001/api/v1/auth/token/refresh/', { refresh })
         localStorage.setItem('aptigs_token', data.access)
         api.defaults.headers.Authorization = `Bearer ${data.access}`
         processQueue(null, data.access)

@@ -33,12 +33,12 @@ export default function QuestionForm() {
       setMarks(existing.marks)
       if (existing.type === 'MCQ') {
         setOptions(existing.options || ['', '', '', ''])
-        setCorrectOption(existing.correctOption ?? 0)
+        setCorrectOption(existing.correct_option ?? 0)
       } else if (existing.type === 'FillBlank') {
-        setCorrectAnswer(existing.correctAnswer || '')
+        setCorrectAnswer(existing.correct_answer || '')
         setHint(existing.hint || '')
       } else {
-        setTrueFalseAnswer(existing.correctAnswer)
+        setTrueFalseAnswer(existing.correct_answer)
       }
     }
   }, [existing])
@@ -47,9 +47,9 @@ export default function QuestionForm() {
     if (!text.trim()) { toast.error('Question text is required'); return }
     const base = { type, text, marks: Number(marks) }
     let payload
-    if (type === 'MCQ') payload = { ...base, options, correctOption }
-    else if (type === 'FillBlank') payload = { ...base, correctAnswer, hint }
-    else payload = { ...base, correctAnswer: trueFalseAnswer }
+    if (type === 'MCQ') payload = { ...base, options, correct_option: correctOption }
+    else if (type === 'FillBlank') payload = { ...base, correct_answer: correctAnswer, hint }
+    else payload = { ...base, correct_answer: trueFalseAnswer }
 
     const result = isEdit
       ? await dispatch(updateQuestionThunk({ id: existing.id, data: payload }))

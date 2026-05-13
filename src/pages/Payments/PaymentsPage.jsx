@@ -26,25 +26,25 @@ export default function PaymentsPage() {
 
   const filtered = enrollments.filter(e => {
     if (statusFilter !== 'All' && e.status !== statusFilter) return false
-    if (courseFilter !== 'All' && e.courseName !== courseFilter) return false
-    if (fromDate && e.paymentDate && e.paymentDate < fromDate) return false
-    if (toDate && e.paymentDate && e.paymentDate > toDate) return false
-    if (search && !e.studentName.toLowerCase().includes(search.toLowerCase())) return false
+    if (courseFilter !== 'All' && e.course_title !== courseFilter) return false
+    if (fromDate && e.payment_date && e.payment_date < fromDate) return false
+    if (toDate && e.payment_date && e.payment_date > toDate) return false
+    if (search && !(e.student_name || '').toLowerCase().includes(search.toLowerCase())) return false
     return true
   })
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
-  const totalFee = filtered.reduce((s, e) => s + e.courseFee, 0)
-  const totalCollected = filtered.reduce((s, e) => s + e.collectedAmount, 0)
+  const totalFee = filtered.reduce((s, e) => s + (e.course_fee || 0), 0)
+  const totalCollected = filtered.reduce((s, e) => s + (e.collected_amount || 0), 0)
   const totalBalance = totalFee - totalCollected
 
   const exportCSV = () => {
     const headers = ['Student', 'Course', 'Fee', 'Collected', 'Balance', 'Payment Date', 'Status']
     const rows = filtered.map(e => [
-      e.studentName, e.courseName, e.courseFee, e.collectedAmount,
-      e.courseFee - e.collectedAmount, e.paymentDate || '', e.status,
+      e.student_name, e.course_title, e.course_fee, e.collected_amount,
+      e.course_fee - e.collected_amount, e.payment_date || '', e.status,
     ])
     const csv = [headers, ...rows].map(r => r.join(',')).join('\n')
     const blob = new Blob([csv], { type: 'text/csv' })
@@ -56,15 +56,15 @@ export default function PaymentsPage() {
     URL.revokeObjectURL(url)
   }
 
-  const uniqueCourses = [...new Set(enrollments.map(e => e.courseName))]
+  const uniqueCourses = [...new Set(enrollments.map(e => e.course_title).filter(Boolean))]
 
   const columns = [
-    { header: 'Student', cell: e => <span className="font-medium text-gray-900">{e.studentName}</span> },
-    { header: 'Course', accessor: 'courseName' },
-    { header: 'Fee', cell: e => formatCurrency(e.courseFee) },
-    { header: 'Collected', cell: e => formatCurrency(e.collectedAmount) },
-    { header: 'Balance', cell: e => formatCurrency(e.courseFee - e.collectedAmount) },
-    { header: 'Payment Date', cell: e => formatDate(e.paymentDate) },
+    { header: 'Student', cell: e => <span className="font-medium text-gray-900">{e.student_name}</span> },
+    { header: 'Course', accessor: 'course_title' },
+    { header: 'Fee', cell: e => formatCurrency(e.course_fee) },
+    { header: 'Collected', cell: e => formatCurrency(e.collected_amount) },
+    { header: 'Balance', cell: e => formatCurrency(e.course_fee - e.collected_amount) },
+    { header: 'Payment Date', cell: e => formatDate(e.payment_date) },
     { header: 'Status', cell: e => <Badge variant={statusVariant[e.status]}>{e.status}</Badge> },
     {
       header: 'Action',

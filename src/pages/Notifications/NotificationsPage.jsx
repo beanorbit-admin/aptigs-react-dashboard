@@ -13,6 +13,7 @@ import { useAppDispatch, useAppSelector } from '../../hooks/redux'
 import {
   fetchNotificationsThunk, markAsReadThunk, markAllAsReadThunk,
   fetchScheduledThunk, createScheduledThunk, deleteScheduledThunk,
+  sendNotification,
 } from '../../store/slices/notificationSlice'
 import { fetchStudentsThunk } from '../../store/slices/studentSlice'
 import { fetchCoursesThunk } from '../../store/slices/courseSlice'
@@ -129,7 +130,7 @@ function CreateNotificationModal({ isOpen, onClose, courses, students }) {
         : form.recipientType === 'course-students' ? 'course_students'
         : 'all_teachers',
       course: form.courseId ? Number(form.courseId) : null,
-      scheduledAt: `${form.scheduleDate}T${form.scheduleTime}:00`,
+      scheduled_at: `${form.scheduleDate}T${form.scheduleTime}:00`,
     }))
     if (result.meta.requestStatus === 'fulfilled') toast.success('Notification scheduled')
     else toast.error('Failed to schedule')
@@ -362,7 +363,7 @@ export default function NotificationsPage() {
   const handleSentQuery      = useCallback(q => setSentQuery(q), [])
   const handleScheduledQuery = useCallback(q => setScheduledQuery(q), [])
 
-  const unreadCount = notifications.filter(n => !n.read).length
+  const unreadCount = notifications.filter(n => !n.is_read).length
 
   // ── Column defs ────────────────────────────────────────────────────────────
   const sentColumns = [
@@ -493,7 +494,7 @@ export default function NotificationsPage() {
           {notifications.map(n => {
             const { icon: Icon, color } = typeIcon[n.type] || typeIcon.lesson
             return (
-              <div key={n.id} className={!n.read ? 'border-l-4 border-indigo-500' : ''}>
+              <div key={n.id} className={!n.is_read ? 'border-l-4 border-indigo-500' : ''}>
                 <button
                   onClick={() => { dispatch(markAsReadThunk(n.id)); setExpandedId(prev => prev === n.id ? null : n.id) }}
                   className="w-full text-left px-6 py-4 hover:bg-gray-50 transition flex items-start gap-4"
@@ -502,10 +503,10 @@ export default function NotificationsPage() {
                     <Icon className="h-4 w-4" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className={`text-sm ${!n.read ? 'font-semibold text-gray-900' : 'font-medium text-gray-700'}`}>{n.title}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">{formatDistanceToNow(n.createdAt || n.sentAt)}</p>
+                    <p className={`text-sm ${!n.is_read ? 'font-semibold text-gray-900' : 'font-medium text-gray-700'}`}>{n.title}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{formatDistanceToNow(n.created_at || n.sentAt)}</p>
                   </div>
-                  {!n.read && <span className="w-2 h-2 bg-indigo-500 rounded-full mt-2 flex-shrink-0" />}
+                  {!n.is_read && <span className="w-2 h-2 bg-indigo-500 rounded-full mt-2 flex-shrink-0" />}
                 </button>
                 {expandedId === n.id && (
                   <div className="px-6 pb-4 pl-[4.25rem]">
