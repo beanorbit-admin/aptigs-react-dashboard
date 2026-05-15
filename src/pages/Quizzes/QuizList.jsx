@@ -15,6 +15,7 @@ const PAGE_SIZE = 10
 
 const FILTER_CONFIGS = [
   { key: 'status', label: 'All Statuses', options: ['Published', 'Draft'] },
+  { key: 'quiz_type', label: 'All Types', options: ['Normal', 'Live'] },
 ]
 
 export default function QuizList() {
@@ -31,10 +32,11 @@ export default function QuizList() {
 
   const { rows, total } = useMemo(() => {
     const s = (query.search || '').toLowerCase()
-    const { status = 'All' } = query.filters || {}
+    const { status = 'All', quiz_type = 'All' } = query.filters || {}
     const filtered = quizzes.filter(q => {
       if (s && ![q.title, q.course_title].some(v => (v || '').toLowerCase().includes(s))) return false
       if (status !== 'All' && q.status !== status) return false
+      if (quiz_type !== 'All' && q.quiz_type !== quiz_type) return false
       return true
     })
     return {
@@ -59,6 +61,14 @@ export default function QuizList() {
         <button onClick={() => navigate(`/quizzes/${q.id}/questions`)} className="font-medium text-indigo-700 hover:underline text-left">
           {q.title}
         </button>
+      ),
+    },
+    {
+      header: 'Type',
+      cell: q => (
+        <Badge variant={q.quiz_type === 'Live' ? 'danger' : 'info'}>
+          {q.quiz_type === 'Live' ? 'Live' : 'Normal'}
+        </Badge>
       ),
     },
     { header: 'Course', accessor: 'course_title' },

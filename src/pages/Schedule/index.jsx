@@ -19,13 +19,14 @@ import { fetchQuizzes as fetchQuizzesAPI } from '../../services/assessmentServic
 import { fetchCoursesThunk } from '../../store/slices/courseSlice'
 import { fetchTeachersThunk } from '../../store/slices/teacherSlice'
 
-const TYPE_COLORS = { LiveClass: '#3B82F6', Activity: '#F59E0B' }
-const TYPE_BADGE = { LiveClass: 'info', Activity: 'warning' }
+const TYPE_COLORS = { LiveClass: '#3B82F6', LiveQuiz: '#7C3AED', Activity: '#F59E0B' }
+const TYPE_BADGE = { LiveClass: 'info', LiveQuiz: 'danger', Activity: 'warning' }
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-const TYPE_LABEL = { LiveClass: 'Live Class', Activity: 'Activity' }
+const TYPE_LABEL = { LiveClass: 'Live Class', LiveQuiz: 'Live Quiz / Exam', Activity: 'Activity' }
 
 function TypeIcon({ type, className }) {
   if (type === 'LiveClass') return <Video className={className} />
+  if (type === 'LiveQuiz') return <BookOpen className={className} />
   return <ClipboardList className={className} />
 }
 
@@ -240,7 +241,7 @@ function StudyScheduleTab() {
     if (!selectedSchedule) return
     setQuizSearchLoading(true)
     try {
-      const data = await fetchQuizzesAPI({ course: selectedSchedule.course, ...(query ? { search: query } : {}) })
+      const data = await fetchQuizzesAPI({ course: selectedSchedule.course, quiz_type: 'Normal', ...(query ? { search: query } : {}) })
       setQuizSearchResults(data.results ?? data)
     } catch {
       setQuizSearchResults([])
@@ -870,8 +871,13 @@ function EventsTab() {
   const [editEvent, setEditEvent] = useState(null)
   const [detailEvent, setDetailEvent] = useState(null)
 
+  // Live quiz search for the event form
+  const [liveQuizzes, setLiveQuizzes] = useState([])
+  const [liveQuizSearch, setLiveQuizSearch] = useState('')
+  const [liveQuizLoading, setLiveQuizLoading] = useState(false)
+
   const emptyForm = {
-    title: '', type: 'LiveClass', courseId: '', semesterId: '', paperId: '',
+    title: '', type: 'LiveClass', quizId: '', courseId: '', semesterId: '', paperId: '',
     teacherId: '', date: '', startTime: '', endTime: '', link: '', targetStudents: 'all',
   }
   const [eForm, setEForm] = useState(emptyForm)
@@ -884,6 +890,22 @@ function EventsTab() {
     () => subjects.filter(s => s.semester === Number(eForm.semesterId)),
     [subjects, eForm.semesterId]
   )
+
+  // Load live quizzes when course changes or search changes (for the LiveQuiz event form)
+  useEffect(() => {
+    if (eForm.type !== 'LiveQuiz') return
+    let active = true
+    setLiveQuizLoading(true)
+    const timer = setTimeout(async () => {
+      try {
+        const params = { quiz_type: 'Live', ...(eForm.courseId ? { course: eForm.courseId } : {}), ...(liveQuizSearch ? { search: liveQuizSearch } : {}) }
+        const data = await fetchQuizzesAPI(params)
+        if (active) setLiveQuizzes(data.results ?? data)
+      } catch { if (active) setLiveQuizzes([]) }
+      finally { if (active) setLiveQuizLoading(false) }
+    }, 300)
+    return () => { active = false; clearTimeout(timer) }
+  }, [eForm.type, eForm.courseId, liveQuizSearch])
 
   const filteredEvents = useMemo(() => {
     let list = [...events]
@@ -912,9 +934,11 @@ function EventsTab() {
 
   const openEdit = (ev) => {
     setEditEvent(ev)
+    setLiveQuizSearch('')
     setEForm({
       title: ev.title,
       type: ev.type,
+      quizId: ev.quiz ? String(ev.quiz) : '',
       courseId: ev.course ? String(ev.course) : '',
       semesterId: ev.semester ? String(ev.semester) : '',
       paperId: ev.subject ? String(ev.subject) : '',
@@ -934,6 +958,7 @@ function EventsTab() {
     const apiPayload = {
       title: eForm.title,
       type: eForm.type,
+      quiz: eForm.type === 'LiveQuiz' ? (Number(eForm.quizId) || null) : null,
       course: Number(eForm.courseId) || null,
       semester: Number(eForm.semesterId) || null,
       subject: Number(eForm.paperId) || null,
@@ -959,6 +984,7 @@ function EventsTab() {
   const TYPE_FILTER_OPTIONS = [
     { label: 'All', value: 'All' },
     { label: 'Live Class', value: 'LiveClass' },
+    { label: 'Live Quiz / Exam', value: 'LiveQuiz' },
     { label: 'Activity', value: 'Activity' },
   ]
 
@@ -1020,7 +1046,7 @@ function EventsTab() {
               const paper = subjects.find(s => s.id === ev.subject)
               const typeColor =
                 ev.type === 'LiveClass' ? 'bg-blue-50 text-blue-500' :
-                ev.type === 'Exam' ? 'bg-red-50 text-red-500' :
+                ev.type === 'LiveQuiz' ? 'bg-purple-50 text-purple-600' :
                 'bg-amber-50 text-amber-500'
               return (
                 <div key={ev.id} className="bg-white rounded-xl shadow-sm p-4 flex flex-col gap-3">
@@ -1043,12 +1069,12 @@ function EventsTab() {
                       Edit
                     </button>
                     {ev.type === 'LiveClass' && (
-                      <Button
-                        size="sm"
-                        onClick={() => ev.link ? window.open(ev.link, '_blank') : toast.error('No meeting link set')}
-                      >
+                      <Button size="sm" onClick={() => ev.link ? window.open(ev.link, '_blank') : toast.error('No meeting link set')}>
                         Join
                       </Button>
+                    )}
+                    {ev.type === 'LiveQuiz' && (
+                      <Badge variant="danger">{ev.quiz_title || 'Live Quiz'}</Badge>
                     )}
                     {ev.type === 'Activity' && (
                       <Button size="sm" variant="secondary">View</Button>
@@ -1071,6 +1097,7 @@ function EventsTab() {
               <p><span className="font-medium">Date:</span> {detailEvent.date}</p>
               <p><span className="font-medium">Time:</span> {detailEvent.start_time} – {detailEvent.end_time}</p>
               {detailEvent.course_title && <p><span className="font-medium">Course:</span> {detailEvent.course_title}</p>}
+              {detailEvent.quiz_title && <p><span className="font-medium">Quiz:</span> {detailEvent.quiz_title}</p>}
               {detailEvent.teacher_name && <p><span className="font-medium">Teacher:</span> {detailEvent.teacher_name}</p>}
               {detailEvent.link && (
                 <p>
@@ -1108,25 +1135,64 @@ function EventsTab() {
           </div>
           <div>
             <label className="text-sm font-medium text-gray-700 block mb-2">Type</label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               {[
                 { value: 'LiveClass', label: 'Live Class', Icon: Video },
+                { value: 'LiveQuiz', label: 'Live Quiz / Exam', Icon: BookOpen },
                 { value: 'Activity', label: 'Activity', Icon: ClipboardList },
               ].map(({ value, label, Icon }) => (
                 <button
                   key={value}
                   type="button"
-                  onClick={() => setEForm(f => ({ ...f, type: value }))}
+                  onClick={() => setEForm(f => ({ ...f, type: value, quizId: '' }))}
                   className={`flex flex-col items-center gap-2 p-3 border-2 rounded-xl transition ${
                     eForm.type === value ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 hover:border-gray-300'
                   }`}
                 >
                   <Icon className={`h-5 w-5 ${eForm.type === value ? 'text-indigo-600' : 'text-gray-400'}`} />
-                  <span className={`text-xs font-medium ${eForm.type === value ? 'text-indigo-600' : 'text-gray-600'}`}>{label}</span>
+                  <span className={`text-xs font-medium text-center ${eForm.type === value ? 'text-indigo-600' : 'text-gray-600'}`}>{label}</span>
                 </button>
               ))}
             </div>
           </div>
+
+          {/* Quiz selector — shown only when type is LiveQuiz */}
+          {eForm.type === 'LiveQuiz' && (
+            <div>
+              <label className="text-sm font-medium text-gray-700 block mb-1">Linked Quiz / Exam</label>
+              <div className="relative mb-2">
+                <input
+                  type="text"
+                  value={liveQuizSearch}
+                  onChange={e => setLiveQuizSearch(e.target.value)}
+                  placeholder="Search live quizzes…"
+                  className="w-full border border-gray-200 rounded-lg pl-3 pr-8 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+                {liveQuizSearch && (
+                  <button onClick={() => setLiveQuizSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+              {liveQuizLoading ? (
+                <div className="flex items-center gap-2 text-xs text-gray-400 py-2">
+                  <div className="h-3.5 w-3.5 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+                  Searching…
+                </div>
+              ) : (
+                <select
+                  value={eForm.quizId}
+                  onChange={e => setEForm(f => ({ ...f, quizId: e.target.value }))}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                >
+                  <option value="">Select a quiz / exam</option>
+                  {liveQuizzes.map(q => (
+                    <option key={q.id} value={q.id}>{q.title}{q.course_title ? ` — ${q.course_title}` : ''}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="text-sm font-medium text-gray-700 block mb-1">Course</label>

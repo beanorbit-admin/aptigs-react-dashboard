@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { BookOpen, Video } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PageWrapper from '../../components/layout/PageWrapper'
 import Button from '../../components/common/Button'
@@ -19,7 +20,7 @@ export default function QuizForm() {
   const existing = isEdit ? quizzes.find(q => q.id === Number(id)) : null
 
   const [form, setForm] = useState({
-    title: '', courseId: '', description: '', timerEnabled: false,
+    title: '', quizType: 'Normal', courseId: '', description: '', timerEnabled: false,
     timerMinutes: 30, passScore: 60, attempts: 2,
   })
 
@@ -32,6 +33,7 @@ export default function QuizForm() {
     if (existing) {
       setForm({
         title: existing.title || '',
+        quizType: existing.quiz_type || 'Normal',
         courseId: existing.course || '',
         description: existing.description || '',
         timerEnabled: !!existing.timer_minutes,
@@ -46,6 +48,7 @@ export default function QuizForm() {
     if (!form.title) { toast.error('Quiz title is required'); return }
     const payload = {
       title: form.title,
+      quiz_type: form.quizType,
       course: Number(form.courseId),
       description: form.description,
       timer_minutes: form.timerEnabled ? Number(form.timerMinutes) : 0,
@@ -70,6 +73,30 @@ export default function QuizForm() {
     <PageWrapper title={isEdit ? 'Edit Quiz' : 'Create Quiz'}>
       <div className="max-w-2xl space-y-6">
         <div className="bg-white rounded-xl shadow-sm p-6 space-y-4">
+          {/* Quiz Type */}
+          <div>
+            <label className="text-sm font-medium text-gray-700 block mb-2">Quiz Type</label>
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { value: 'Normal', label: 'Normal Quiz', Icon: BookOpen, desc: 'Assigned to study schedule days' },
+                { value: 'Live', label: 'Live Quiz / Live Exam', Icon: Video, desc: 'Scheduled as a live event' },
+              ].map(({ value, label, Icon, desc }) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setForm(f => ({ ...f, quizType: value }))}
+                  className={`flex flex-col items-center gap-2 p-4 border-2 rounded-xl transition text-center ${
+                    form.quizType === value ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <Icon className={`h-5 w-5 ${form.quizType === value ? 'text-indigo-600' : 'text-gray-400'}`} />
+                  <span className={`text-sm font-medium ${form.quizType === value ? 'text-indigo-600' : 'text-gray-700'}`}>{label}</span>
+                  <span className="text-xs text-gray-400 leading-tight">{desc}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div>
             <label className="text-sm font-medium text-gray-700 block mb-1">Quiz Title *</label>
             <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
