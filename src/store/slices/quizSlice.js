@@ -22,7 +22,10 @@ export const deleteQuizThunk = createAsyncThunk('quizzes/delete', async (id, { r
 })
 
 export const addQuestionsThunk = createAsyncThunk('quizzes/addQuestions', async ({ quizId, questionIds }, { rejectWithValue }) => {
-  try { return await svc.addQuestionsToQuiz(quizId, questionIds) } catch (e) { return rejectWithValue(e.response?.data) }
+  try {
+    await svc.addQuestionsToQuiz(quizId, questionIds)
+    return await svc.fetchQuiz(quizId)
+  } catch (e) { return rejectWithValue(e.response?.data) }
 })
 
 export const removeQuestionThunk = createAsyncThunk('quizzes/removeQuestion', async ({ quizId, questionId }, { rejectWithValue }) => {
@@ -51,7 +54,12 @@ const quizSlice = createSlice({
         state.totalCount = payload.count ?? state.list.length
       })
       .addCase(fetchQuizzesThunk.rejected, (state, { payload }) => { state.loading = false; state.error = payload })
-      .addCase(fetchQuizThunk.fulfilled, (state, { payload }) => { state.selected = payload })
+      .addCase(fetchQuizThunk.fulfilled, (state, { payload }) => {
+        state.selected = payload
+        const idx = state.list.findIndex(q => q.id === payload.id)
+        if (idx !== -1) state.list[idx] = { ...state.list[idx], ...payload }
+        else state.list.push(payload)
+      })
       .addCase(createQuizThunk.fulfilled, (state, { payload }) => { state.list.push(payload) })
       .addCase(updateQuizThunk.fulfilled, (state, { payload }) => {
         const idx = state.list.findIndex(q => q.id === payload.id)

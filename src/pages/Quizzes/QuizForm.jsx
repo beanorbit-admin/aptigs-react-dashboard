@@ -1,14 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { X, Search } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PageWrapper from '../../components/layout/PageWrapper'
 import Button from '../../components/common/Button'
-import Badge from '../../components/common/Badge'
-import Modal from '../../components/common/Modal'
 import { useAppDispatch, useAppSelector } from '../../hooks/redux'
-import { fetchQuizzesThunk, createQuizThunk, updateQuizThunk, addQuestionsThunk } from '../../store/slices/quizSlice'
-import { fetchQuestionsThunk } from '../../store/slices/questionSlice'
+import { fetchQuizzesThunk, createQuizThunk, updateQuizThunk } from '../../store/slices/quizSlice'
 import { fetchCoursesThunk } from '../../store/slices/courseSlice'
 
 export default function QuizForm() {
@@ -19,21 +15,16 @@ export default function QuizForm() {
 
   const quizzes = useAppSelector(state => state.quizzes.list)
   const courses = useAppSelector(state => state.courses.list)
-  const allQuestions = useAppSelector(state => state.questions.list)
 
   const existing = isEdit ? quizzes.find(q => q.id === Number(id)) : null
 
   const [form, setForm] = useState({
     title: '', courseId: '', description: '', timerEnabled: false,
     timerMinutes: 30, passScore: 60, attempts: 2,
-    questionIds: [],
   })
-  const [pickerOpen, setPickerOpen] = useState(false)
-  const [qSearch, setQSearch] = useState('')
 
   useEffect(() => {
     dispatch(fetchCoursesThunk())
-    dispatch(fetchQuestionsThunk())
     if (isEdit) dispatch(fetchQuizzesThunk())
   }, [dispatch, isEdit])
 
@@ -47,26 +38,9 @@ export default function QuizForm() {
         timerMinutes: existing.timer_minutes || 30,
         passScore: existing.pass_score || 60,
         attempts: existing.attempts || 2,
-        questionIds: (existing.quiz_questions || []).map(qq => qq.question.id),
       })
     }
   }, [existing])
-
-  const selectedQuestions = allQuestions.filter(q => form.questionIds.includes(q.id))
-  const filteredQuestions = allQuestions.filter(q =>
-    q.text.toLowerCase().includes(qSearch.toLowerCase())
-  )
-
-  const toggleQuestion = (qid) => {
-    setForm(f => ({
-      ...f,
-      questionIds: f.questionIds.includes(qid)
-        ? f.questionIds.filter(id => id !== qid)
-        : [...f.questionIds, qid]
-    }))
-  }
-
-  const removeQuestion = (qid) => setForm(f => ({ ...f, questionIds: f.questionIds.filter(id => id !== qid) }))
 
   const handleSave = async (status) => {
     if (!form.title) { toast.error('Quiz title is required'); return }
@@ -85,17 +59,12 @@ export default function QuizForm() {
 
     if (result.meta.requestStatus === 'fulfilled') {
       const quizId = result.payload.id
-      if (form.questionIds.length > 0) {
-        await dispatch(addQuestionsThunk({ quizId, questionIds: form.questionIds }))
-      }
       toast.success(isEdit ? 'Quiz updated' : 'Quiz created')
-      navigate('/quizzes')
+      navigate(`/quizzes/${quizId}/questions`)
     } else {
       toast.error('Save failed')
     }
   }
-
-  const typeBadge = { MCQ: 'info', TrueFalse: 'warning', FillBlank: 'default' }
 
   return (
     <PageWrapper title={isEdit ? 'Edit Quiz' : 'Create Quiz'}>
@@ -152,65 +121,12 @@ export default function QuizForm() {
           </div>
         </div>
 
-        {/* Questions */}
-        <div className="bg-white rounded-xl shadow-sm p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-base font-semibold text-gray-800">Questions ({selectedQuestions.length})</h3>
-            <Button size="sm" variant="secondary" onClick={() => setPickerOpen(true)}>+ Add Questions</Button>
-          </div>
-          {selectedQuestions.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-4">No questions added</p>
-          ) : (
-            <ul className="space-y-2">
-              {selectedQuestions.map(q => (
-                <li key={q.id} className="flex items-center gap-3 bg-gray-50 rounded-lg px-4 py-2">
-                  <Badge variant={typeBadge[q.type]}>{q.type}</Badge>
-                  <span className="flex-1 text-sm text-gray-700 truncate">{q.text}</span>
-                  <span className="text-xs text-gray-500">{q.marks} mk</span>
-                  <button onClick={() => removeQuestion(q.id)} className="text-red-400 hover:text-red-600">
-                    <X className="h-4 w-4" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
         <div className="flex gap-3">
           <Button variant="secondary" onClick={() => handleSave('Draft')}>Save as Draft</Button>
           <Button onClick={() => handleSave('Published')}>Publish</Button>
           <Button variant="ghost" onClick={() => navigate('/quizzes')}>Cancel</Button>
         </div>
       </div>
-
-      {/* Question Picker Modal */}
-      <Modal isOpen={pickerOpen} onClose={() => setPickerOpen(false)} title="Add Questions" size="lg">
-        <div className="space-y-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <input value={qSearch} onChange={e => setQSearch(e.target.value)} placeholder="Search questions..."
-              className="w-full pl-9 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-          </div>
-          <div className="max-h-80 overflow-y-auto space-y-2">
-            {filteredQuestions.map(q => (
-              <label key={q.id} className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 cursor-pointer">
-                <input type="checkbox" checked={form.questionIds.includes(q.id)} onChange={() => toggleQuestion(q.id)}
-                  className="mt-0.5 w-4 h-4 text-indigo-600" />
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <Badge variant={typeBadge[q.type]}>{q.type}</Badge>
-                    <span className="text-xs text-gray-500">{q.marks} mark{q.marks !== 1 ? 's' : ''}</span>
-                  </div>
-                  <p className="text-sm text-gray-700 mt-1">{q.text}</p>
-                </div>
-              </label>
-            ))}
-          </div>
-          <div className="flex justify-end">
-            <Button onClick={() => setPickerOpen(false)}>Done ({form.questionIds.length} selected)</Button>
-          </div>
-        </div>
-      </Modal>
     </PageWrapper>
   )
 }

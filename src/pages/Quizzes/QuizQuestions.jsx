@@ -10,7 +10,7 @@ import DataTable from '../../components/common/DataTable'
 import RichTextEditor from '../../components/common/RichTextEditor'
 import { useAppDispatch, useAppSelector } from '../../hooks/redux'
 import { fetchQuestionsThunk, createQuestionThunk, updateQuestionThunk, deleteQuestionThunk } from '../../store/slices/questionSlice'
-import { fetchQuizzesThunk, addQuestionsThunk, removeQuestionThunk } from '../../store/slices/quizSlice'
+import { fetchQuizThunk, addQuestionsThunk, removeQuestionThunk } from '../../store/slices/quizSlice'
 
 const typeBadge = { MCQ: 'info', TrueFalse: 'warning', FillBlank: 'default' }
 const PAGE_SIZE = 10
@@ -137,9 +137,9 @@ export default function QuizQuestions() {
   const [query, setQuery] = useState({ search: '', filters: {}, page: 1 })
 
   useEffect(() => {
-    dispatch(fetchQuizzesThunk())
+    dispatch(fetchQuizThunk(Number(id)))
     dispatch(fetchQuestionsThunk())
-  }, [dispatch])
+  }, [dispatch, id])
 
   const quizQuestionIds = useMemo(() => (quiz?.quiz_questions || []).map(qq => qq.question.id), [quiz])
 
