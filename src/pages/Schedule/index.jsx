@@ -1,8 +1,7 @@
-import { useEffect, useState, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
-import { Play, FileText, ClipboardList, Bell, Plus, X, Video, Calendar, ChevronDown } from 'lucide-react'
+import { Play, FileText, ClipboardList, Bell, Plus, X, Video, Calendar, ChevronDown, BookOpen } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PageWrapper from '../../components/layout/PageWrapper'
 import Button from '../../components/common/Button'
@@ -11,20 +10,86 @@ import Modal from '../../components/common/Modal'
 import { useAppDispatch, useAppSelector } from '../../hooks/redux'
 import {
   setSelectedSchedule,
-  fetchEventsThunk, fetchCourseSchedulesThunk, createEventThunk, updateEventThunk, deleteEventThunk,
+  fetchEventsThunk, fetchCourseSchedulesThunk, createEventThunk, updateEventThunk,
   createCourseScheduleThunk, updateCourseScheduleThunk,
 } from '../../store/slices/scheduleSlice'
 import { fetchSemestersThunk, fetchSubjectsThunk, fetchChaptersThunk, fetchLessonsThunk } from '../../store/slices/courseContentSlice'
+import { fetchQuizzesThunk } from '../../store/slices/quizSlice'
+import { fetchQuizzes as fetchQuizzesAPI } from '../../services/assessmentService'
+import { fetchCoursesThunk } from '../../store/slices/courseSlice'
+import { fetchTeachersThunk } from '../../store/slices/teacherSlice'
 
-const TYPE_COLORS = { LiveClass: '#3B82F6', Exam: '#EF4444', Activity: '#F59E0B' }
-const TYPE_BADGE = { LiveClass: 'info', Exam: 'danger', Activity: 'warning' }
+const TYPE_COLORS = { LiveClass: '#3B82F6', Activity: '#F59E0B' }
+const TYPE_BADGE = { LiveClass: 'info', Activity: 'warning' }
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-const TYPE_LABEL = { LiveClass: 'Live Class', Exam: 'Exam', Activity: 'Activity' }
+const TYPE_LABEL = { LiveClass: 'Live Class', Activity: 'Activity' }
 
 function TypeIcon({ type, className }) {
   if (type === 'LiveClass') return <Video className={className} />
-  if (type === 'Exam') return <FileText className={className} />
   return <ClipboardList className={className} />
+}
+
+// ─── Pure helpers ─────────────────────────────────────────────────────────────
+
+function getWeekDayRange(weekIndex, totalWeeks, startDate, endDate) {
+  const toWeekday = (dateStr) => {
+    const js = new Date(dateStr + 'T00:00:00').getDay() // 0=Sun
+    return js === 0 ? 7 : js // 1=Mon … 7=Sun
+  }
+  const startDay = toWeekday(startDate)
+  const endDay = toWeekday(endDate)
+
+  if (weekIndex === 1 && weekIndex === totalWeeks) {
+    return Array.from({ length: endDay - startDay + 1 }, (_, i) => startDay + i)
+  }
+  if (weekIndex === 1) return Array.from({ length: 7 - startDay + 1 }, (_, i) => startDay + i)
+  if (weekIndex === totalWeeks) return Array.from({ length: endDay }, (_, i) => i + 1)
+  return [1, 2, 3, 4, 5, 6, 7]
+}
+
+function parseDurationToDays(durationStr) {
+  if (!durationStr) return 0
+  const match = durationStr.trim().toLowerCase().match(/^(\d+(?:\.\d+)?)\s*(year|month|week|day)s?$/)
+  if (!match) return 0
+  const n = parseFloat(match[1])
+  switch (match[2]) {
+    case 'year':  return Math.round(n * 365)
+    case 'month': return Math.round(n * 30)
+    case 'week':  return Math.round(n * 7)
+    case 'day':   return Math.round(n)
+    default:      return 0
+  }
+}
+
+function computeScheduleDays(startDate, endDate) {
+  if (!startDate || !endDate) return 0
+  const diff = new Date(endDate + 'T00:00:00') - new Date(startDate + 'T00:00:00')
+  return Math.max(0, Math.round(diff / 86400000) + 1)
+}
+
+// ─── Duration Allocation Bar ──────────────────────────────────────────────────
+
+function DurationAllocationBar({ totalDays, usedDays, hasOverlap }) {
+  if (totalDays === 0) return null
+  const pct = Math.min(100, Math.round((usedDays / totalDays) * 100))
+  const isOver = usedDays > totalDays
+  const barColor = isOver || hasOverlap ? 'bg-red-500' : pct > 80 ? 'bg-amber-400' : 'bg-indigo-500'
+  return (
+    <div className="space-y-1">
+      <div className="flex justify-between text-xs text-gray-500">
+        <span>{usedDays} / {totalDays} days used</span>
+        <span className={isOver ? 'text-red-500 font-medium' : 'text-gray-400'}>
+          {isOver ? `${usedDays - totalDays} days over` : `${totalDays - usedDays} days remaining`}
+        </span>
+      </div>
+      <div className="w-full bg-gray-100 rounded-full h-1.5">
+        <div className={`h-1.5 rounded-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
+      </div>
+      {hasOverlap && (
+        <p className="text-xs text-red-500">Warning: semester date ranges overlap</p>
+      )}
+    </div>
+  )
 }
 
 // ─── Study Schedule Tab ──────────────────────────────────────────────────────
@@ -38,10 +103,14 @@ function StudyScheduleTab() {
   const subjects = useAppSelector(s => s.courseContent.subjects)
   const lessons = useAppSelector(s => s.courseContent.lessons)
 
-  // Left panel navigation state
-  const [expandedCourseId, setExpandedCourseId] = useState(null)
-  const [activeCourseId, setActiveCourseId] = useState(null)
-  const [activeSemesterId, setActiveSemesterId] = useState(null)
+
+  // Left panel navigation state — initialized from Redux so tab-switching restores selection
+  const [expandedCourseId, setExpandedCourseId] = useState(() => selectedSchedule?.course ?? null)
+  const [activeCourseId, setActiveCourseId] = useState(() => selectedSchedule?.course ?? null)
+  const [activeSemesterId, setActiveSemesterId] = useState(() => selectedSchedule?.semester ?? null)
+
+  // Course search
+  const [courseSearch, setCourseSearch] = useState('')
 
   // Right panel state
   const [activeWeek, setActiveWeek] = useState(1)
@@ -56,6 +125,14 @@ function StudyScheduleTab() {
   const [pickerContext, setPickerContext] = useState(null)
   const [pickerPaperId, setPickerPaperId] = useState('')
   const [pickerSelected, setPickerSelected] = useState([])
+
+  // Quiz picker
+  const [quizPickerOpen, setQuizPickerOpen] = useState(false)
+  const [quizPickerContext, setQuizPickerContext] = useState(null)
+  const [quizPickerSelected, setQuizPickerSelected] = useState([])
+  const [quizSearchQuery, setQuizSearchQuery] = useState('')
+  const [quizSearchResults, setQuizSearchResults] = useState([])
+  const [quizSearchLoading, setQuizSearchLoading] = useState(false)
 
   const suggestWeeks = (start, end) => {
     if (!start || !end) return 18
@@ -128,6 +205,11 @@ function StudyScheduleTab() {
     return selectedSchedule.days.find(d => d.week === week && d.day === day)?.lessons || []
   }
 
+  const getDayQuizzes = (week, day) => {
+    if (!selectedSchedule) return []
+    return selectedSchedule.days.find(d => d.week === week && d.day === day)?.quizzes || []
+  }
+
   const removeLesson = async (week, day, idx) => {
     const updatedDays = selectedSchedule.days.map(d => {
       if (d.week !== week || d.day !== day) return d
@@ -141,12 +223,69 @@ function StudyScheduleTab() {
     }
   }
 
+  const removeQuiz = async (week, day, idx) => {
+    const updatedDays = selectedSchedule.days.map(d => {
+      if (d.week !== week || d.day !== day) return d
+      return { ...d, quizzes: (d.quizzes || []).filter((_, i) => i !== idx) }
+    })
+    const result = await dispatch(updateCourseScheduleThunk({ id: selectedSchedule.id, data: { days: updatedDays } }))
+    if (result.meta.requestStatus === 'fulfilled') {
+      dispatch(setSelectedSchedule(result.payload))
+    } else {
+      toast.error('Failed to remove quiz')
+    }
+  }
+
+  const loadQuizPickerResults = useCallback(async (query) => {
+    if (!selectedSchedule) return
+    setQuizSearchLoading(true)
+    try {
+      const data = await fetchQuizzesAPI({ course: selectedSchedule.course, ...(query ? { search: query } : {}) })
+      setQuizSearchResults(data.results ?? data)
+    } catch {
+      setQuizSearchResults([])
+    } finally {
+      setQuizSearchLoading(false)
+    }
+  }, [selectedSchedule])
+
+  // Debounced search — fires 350ms after the user stops typing
+  useEffect(() => {
+    if (!quizPickerOpen) return
+    const timer = setTimeout(() => loadQuizPickerResults(quizSearchQuery), 350)
+    return () => clearTimeout(timer)
+  }, [quizSearchQuery, quizPickerOpen, loadQuizPickerResults])
+
+  // Maps a quiz ID to every day it has already been added on in this schedule
+  const getQuizAddedDays = useCallback((quizId) => {
+    if (!selectedSchedule) return []
+    return selectedSchedule.days
+      .filter(d => (d.quizzes || []).some(q => q.quizId === quizId))
+      .map(d => `Week ${d.week} · Day ${d.day} · ${WEEKDAYS[d.day - 1]}`)
+  }, [selectedSchedule])
+
   const openLessonPicker = (week, day) => {
     setPickerContext({ week, day })
     setPickerPaperId('')
     setPickerSelected([])
     setLessonPickerOpen(true)
   }
+
+  const openQuizPicker = (week, day) => {
+    setQuizPickerContext({ week, day })
+    setQuizPickerSelected([])
+    setQuizSearchQuery('')
+    setQuizSearchResults([])
+    setQuizPickerOpen(true)
+    loadQuizPickerResults('')
+  }
+
+  const filteredCourses = useMemo(
+    () => courseSearch.trim()
+      ? courses.filter(c => c.title.toLowerCase().includes(courseSearch.toLowerCase()))
+      : courses,
+    [courses, courseSearch]
+  )
 
   const pickerPapers = useMemo(
     () => selectedSchedule ? subjects.filter(s => s.semester === selectedSchedule.semester) : [],
@@ -158,8 +297,13 @@ function StudyScheduleTab() {
     [lessons, pickerPaperId]
   )
 
+
+
   const toggleLesson = (id) =>
     setPickerSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+
+  const toggleQuizSelection = (id) =>
+    setQuizPickerSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
 
   const addSelectedLessons = async () => {
     if (!pickerContext || pickerSelected.length === 0) {
@@ -183,7 +327,7 @@ function StudyScheduleTab() {
       ? selectedSchedule.days.map((d, i) =>
           i === existingIdx ? { ...d, lessons: [...d.lessons, ...newLessons] } : d
         )
-      : [...selectedSchedule.days, { week, day, lessons: newLessons }]
+      : [...selectedSchedule.days, { week, day, lessons: newLessons, quizzes: [] }]
     const result = await dispatch(updateCourseScheduleThunk({ id: selectedSchedule.id, data: { days: updatedDays } }))
     if (result.meta.requestStatus === 'fulfilled') {
       dispatch(setSelectedSchedule(result.payload))
@@ -194,6 +338,54 @@ function StudyScheduleTab() {
     }
   }
 
+  const addSelectedQuizzes = async () => {
+    if (!quizPickerContext || quizPickerSelected.length === 0) {
+      toast.error('Select at least one quiz')
+      return
+    }
+    const newQuizzes = quizPickerSelected.map(qid => {
+      const quiz = quizSearchResults.find(q => q.id === qid)
+      return { quizId: qid, quizTitle: quiz?.title || '' }
+    })
+    const { week, day } = quizPickerContext
+    const existingIdx = selectedSchedule.days.findIndex(d => d.week === week && d.day === day)
+    const updatedDays = existingIdx >= 0
+      ? selectedSchedule.days.map((d, i) =>
+          i === existingIdx ? { ...d, quizzes: [...(d.quizzes || []), ...newQuizzes] } : d
+        )
+      : [...selectedSchedule.days, { week, day, lessons: [], quizzes: newQuizzes }]
+    const result = await dispatch(updateCourseScheduleThunk({ id: selectedSchedule.id, data: { days: updatedDays } }))
+    if (result.meta.requestStatus === 'fulfilled') {
+      dispatch(setSelectedSchedule(result.payload))
+      setQuizPickerOpen(false)
+      toast.success(`${newQuizzes.length} quiz${newQuizzes.length > 1 ? 'zes' : ''} added`)
+    } else {
+      toast.error('Failed to add quizzes')
+    }
+  }
+
+  // Duration allocation: compute per-course when a course is expanded
+  const courseAllocation = useMemo(() => {
+    if (!expandedCourseId) return null
+    const course = courses.find(c => c.id === expandedCourseId)
+    if (!course) return null
+    const totalDays = parseDurationToDays(course.duration)
+    const courseSemesters = semesters.filter(s => s.course === expandedCourseId)
+    const semesterRanges = courseSemesters.map(sem => {
+      const schedule = courseSchedules.find(s => s.course === expandedCourseId && s.semester === sem.id)
+      return schedule
+        ? { semId: sem.id, start: schedule.start_date, end: schedule.end_date, days: computeScheduleDays(schedule.start_date, schedule.end_date) }
+        : { semId: sem.id, start: null, end: null, days: 0 }
+    })
+    const usedDays = semesterRanges.reduce((acc, r) => acc + r.days, 0)
+    const scheduled = semesterRanges.filter(r => r.start && r.end).sort((a, b) => a.start.localeCompare(b.start))
+    let hasOverlap = false
+    for (let i = 0; i < scheduled.length - 1; i++) {
+      if (scheduled[i].end >= scheduled[i + 1].start) { hasOverlap = true; break }
+    }
+    return { totalDays, usedDays, hasOverlap }
+  }, [expandedCourseId, courses, semesters, courseSchedules])
+
   const activeCourse = courses.find(c => c.id === activeCourseId)
   const activeSemester = semesters.find(s => s.id === activeSemesterId)
 
@@ -201,17 +393,38 @@ function StudyScheduleTab() {
     <div className="flex flex-col lg:flex-row gap-6">
 
       {/* ── Left: Course → Semester Accordion ── */}
-      <div className="lg:w-72 shrink-0 space-y-2">
-        <h2 className="text-base font-semibold text-gray-800 mb-3">Courses</h2>
+      <div className="lg:w-72 shrink-0 flex flex-col gap-3">
+        <h2 className="text-base font-semibold text-gray-800">Courses</h2>
 
-        {courses.length === 0 && (
-          <div className="bg-white rounded-xl shadow-sm p-6 text-center text-gray-400 text-sm">
-            No courses found.
-          </div>
-        )}
+        {/* Search */}
+        <div className="relative">
+          <input
+            type="text"
+            value={courseSearch}
+            onChange={e => setCourseSearch(e.target.value)}
+            placeholder="Search courses..."
+            className="w-full border border-gray-200 rounded-lg pl-3 pr-8 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+          />
+          {courseSearch && (
+            <button
+              onClick={() => setCourseSearch('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
 
-        {courses.map(course => {
-          const isExpanded = expandedCourseId === course.id
+        {/* Scrollable list */}
+        <div className="overflow-y-auto space-y-2 pr-0.5" style={{ maxHeight: 'calc(100vh - 240px)' }}>
+          {filteredCourses.length === 0 && (
+            <div className="bg-white rounded-xl shadow-sm p-6 text-center text-gray-400 text-sm">
+              {courseSearch ? 'No matching courses.' : 'No courses found.'}
+            </div>
+          )}
+
+          {filteredCourses.map(course => {
+            const isExpanded = expandedCourseId === course.id
           const courseSemesters = semesters.filter(s => s.course === course.id)
           return (
             <div key={course.id} className="bg-white rounded-xl shadow-sm overflow-hidden">
@@ -260,18 +473,30 @@ function StudyScheduleTab() {
                       })}
                     </div>
                   )}
+
+                  {/* Duration allocation bar */}
+                  {courseAllocation && expandedCourseId === course.id && (
+                    <div className="border-t border-gray-100 px-4 py-3">
+                      <DurationAllocationBar
+                        totalDays={courseAllocation.totalDays}
+                        usedDays={courseAllocation.usedDays}
+                        hasOverlap={courseAllocation.hasOverlap}
+                      />
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           )
         })}
+        </div>{/* end scrollable list */}
       </div>
 
       {/* ── Right: Schedule Builder ── */}
       <div className="flex-1 min-w-0">
 
         {/* Nothing selected yet */}
-        {!activeSemesterId && (
+        {!activeSemesterId && !selectedSchedule && (
           <div className="bg-white rounded-xl shadow-sm p-16 text-center text-gray-400 flex flex-col items-center gap-3">
             <Calendar className="h-12 w-12 opacity-25" />
             <p className="text-sm">Select a course and semester to view or create its schedule</p>
@@ -333,45 +558,73 @@ function StudyScheduleTab() {
 
             {/* Day Slots */}
             <div className="divide-y divide-gray-50">
-              {Array.from({ length: 7 }, (_, i) => i + 1).map(dayNum => {
-                const dayLessons = getDayLessons(activeWeek, dayNum)
-                return (
-                  <div key={dayNum} className="p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-sm font-medium text-gray-700">
-                        Week {activeWeek} · Day {dayNum} · {WEEKDAYS[dayNum - 1]}
-                      </p>
-                      <button
-                        onClick={() => openLessonPicker(activeWeek, dayNum)}
-                        className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 font-medium"
-                      >
-                        <Plus className="h-3 w-3" />Add Lesson
-                      </button>
-                    </div>
-                    {dayLessons.length === 0 ? (
-                      <p className="text-xs text-gray-400 italic">No lessons assigned</p>
-                    ) : (
-                      <div className="flex flex-wrap gap-2">
-                        {dayLessons.map((lesson, idx) => (
-                          <div key={idx} className="flex items-center gap-2 bg-indigo-50 rounded-lg px-3 py-1.5 text-xs">
-                            {lesson.lessonType === 'video'
-                              ? <Play className="h-3 w-3 text-indigo-500 shrink-0" />
-                              : <FileText className="h-3 w-3 text-indigo-500 shrink-0" />
-                            }
-                            <span className="text-gray-800 font-medium">{lesson.title}</span>
-                            {lesson.paperName && (
-                              <span className="text-gray-500 hidden sm:inline">· {lesson.paperName}</span>
-                            )}
-                            <button onClick={() => removeLesson(activeWeek, dayNum, idx)} className="text-gray-400 hover:text-red-500 ml-0.5">
-                              <X className="h-3 w-3" />
-                            </button>
-                          </div>
-                        ))}
+              {getWeekDayRange(activeWeek, selectedSchedule.weeks, selectedSchedule.start_date, selectedSchedule.end_date)
+                .map(dayNum => {
+                  const dayLessons = getDayLessons(activeWeek, dayNum)
+                  const dayQuizzes = getDayQuizzes(activeWeek, dayNum)
+                  return (
+                    <div key={dayNum} className="p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-sm font-medium text-gray-700">
+                          Week {activeWeek} · Day {dayNum} · {WEEKDAYS[dayNum - 1]}
+                        </p>
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => openLessonPicker(activeWeek, dayNum)}
+                            className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+                          >
+                            <Plus className="h-3 w-3" />Add Lesson
+                          </button>
+                          <button
+                            onClick={() => openQuizPicker(activeWeek, dayNum)}
+                            className="flex items-center gap-1 text-xs text-purple-600 hover:text-purple-800 font-medium"
+                          >
+                            <Plus className="h-3 w-3" />Add Quiz
+                          </button>
+                        </div>
                       </div>
-                    )}
-                  </div>
-                )
-              })}
+
+                      {dayLessons.length === 0 && dayQuizzes.length === 0 ? (
+                        <p className="text-xs text-gray-400 italic">No lessons or quizzes assigned</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {dayLessons.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                              {dayLessons.map((lesson, idx) => (
+                                <div key={idx} className="flex items-center gap-2 bg-indigo-50 rounded-lg px-3 py-1.5 text-xs">
+                                  {lesson.lessonType === 'video'
+                                    ? <Play className="h-3 w-3 text-indigo-500 shrink-0" />
+                                    : <FileText className="h-3 w-3 text-indigo-500 shrink-0" />
+                                  }
+                                  <span className="text-gray-800 font-medium">{lesson.title}</span>
+                                  {lesson.paperName && (
+                                    <span className="text-gray-500 hidden sm:inline">· {lesson.paperName}</span>
+                                  )}
+                                  <button onClick={() => removeLesson(activeWeek, dayNum, idx)} className="text-gray-400 hover:text-red-500 ml-0.5">
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {dayQuizzes.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                              {dayQuizzes.map((quiz, idx) => (
+                                <div key={idx} className="flex items-center gap-2 bg-purple-50 rounded-lg px-3 py-1.5 text-xs">
+                                  <BookOpen className="h-3 w-3 text-purple-500 shrink-0" />
+                                  <span className="text-gray-800 font-medium">{quiz.quizTitle}</span>
+                                  <button onClick={() => removeQuiz(activeWeek, dayNum, idx)} className="text-gray-400 hover:text-red-500 ml-0.5">
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
             </div>
           </div>
         )}
@@ -429,6 +682,32 @@ function StudyScheduleTab() {
             />
             <p className="text-xs text-gray-400 mt-1">Auto-calculated from dates above, adjust if needed</p>
           </div>
+
+          {/* Live duration allocation in modal */}
+          {(() => {
+            const course = courses.find(c => c.id === activeCourseId)
+            if (!course) return null
+            const totalDays = parseDurationToDays(course.duration)
+            if (totalDays === 0) return null
+            const otherSchedules = courseSchedules.filter(
+              s => s.course === activeCourseId && s.semester !== activeSemesterId
+            )
+            const otherUsedDays = otherSchedules.reduce(
+              (acc, s) => acc + computeScheduleDays(s.start_date, s.end_date), 0
+            )
+            const currentDays = computeScheduleDays(sForm.startDate, sForm.endDate)
+            const totalUsed = otherUsedDays + currentDays
+            return (
+              <div className="bg-gray-50 rounded-lg p-3 space-y-2">
+                <p className="text-xs font-medium text-gray-600">Course duration allocation</p>
+                <DurationAllocationBar totalDays={totalDays} usedDays={totalUsed} hasOverlap={false} />
+                <p className="text-xs text-gray-400">
+                  This semester: {currentDays} days · Other semesters: {otherUsedDays} days
+                </p>
+              </div>
+            )
+          })()}
+
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="secondary" onClick={() => setScheduleModalOpen(false)}>Cancel</Button>
             <Button onClick={saveSchedule}>{isEditingDuration ? 'Update' : 'Create'}</Button>
@@ -490,6 +769,87 @@ function StudyScheduleTab() {
           </div>
         </div>
       </Modal>
+
+      {/* Quiz Picker Modal */}
+      <Modal
+        isOpen={quizPickerOpen}
+        onClose={() => setQuizPickerOpen(false)}
+        title={`Add Quizzes — Week ${quizPickerContext?.week}, Day ${quizPickerContext?.day} · ${WEEKDAYS[(quizPickerContext?.day ?? 1) - 1]}`}
+        size="md"
+      >
+        <div className="space-y-4">
+          {/* Search */}
+          <div className="relative">
+            <input
+              type="text"
+              value={quizSearchQuery}
+              onChange={e => setQuizSearchQuery(e.target.value)}
+              placeholder="Search quizzes..."
+              className="w-full border border-gray-200 rounded-lg pl-3 pr-8 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white"
+            />
+            {quizSearchQuery && (
+              <button
+                onClick={() => setQuizSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* List */}
+          {quizSearchLoading ? (
+            <div className="flex items-center justify-center py-10 text-gray-400 text-sm gap-2">
+              <div className="h-4 w-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+              Searching…
+            </div>
+          ) : quizSearchResults.length === 0 ? (
+            <p className="text-sm text-gray-400 py-6 text-center">
+              {quizSearchQuery ? 'No quizzes match your search.' : 'No quizzes found for this course.'}
+            </p>
+          ) : (
+            <div className="space-y-1.5 max-h-96 overflow-y-auto pr-0.5">
+              {quizSearchResults.map(quiz => {
+                const addedDays = getQuizAddedDays(quiz.id)
+                const alreadyOnThisDay = addedDays.some(
+                  label => label === `Week ${quizPickerContext?.week} · Day ${quizPickerContext?.day} · ${WEEKDAYS[(quizPickerContext?.day ?? 1) - 1]}`
+                )
+                return (
+                  <label key={quiz.id} className={`flex items-start gap-3 p-2.5 rounded-lg cursor-pointer transition ${alreadyOnThisDay ? 'bg-purple-50' : 'hover:bg-gray-50'}`}>
+                    <input
+                      type="checkbox"
+                      checked={quizPickerSelected.includes(quiz.id)}
+                      onChange={() => toggleQuizSelection(quiz.id)}
+                      className="mt-0.5 rounded border-gray-300 text-purple-600 focus:ring-purple-500 shrink-0"
+                    />
+                    <BookOpen className="h-3.5 w-3.5 text-purple-500 shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm text-gray-800 font-medium leading-snug">{quiz.title}</span>
+                        {quiz.status && (
+                          <Badge variant={quiz.status === 'Published' ? 'success' : 'default'}>{quiz.status}</Badge>
+                        )}
+                      </div>
+                      {addedDays.length > 0 && (
+                        <p className="text-xs text-purple-600 mt-0.5">
+                          Already added on: {addedDays.join(', ')}
+                        </p>
+                      )}
+                    </div>
+                  </label>
+                )
+              })}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="secondary" onClick={() => setQuizPickerOpen(false)}>Cancel</Button>
+            <Button onClick={addSelectedQuizzes}>
+              Add Selected {quizPickerSelected.length > 0 ? `(${quizPickerSelected.length})` : ''}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }
@@ -497,7 +857,6 @@ function StudyScheduleTab() {
 // ─── Events Tab ──────────────────────────────────────────────────────────────
 
 function EventsTab() {
-  const navigate = useNavigate()
   const dispatch = useAppDispatch()
   const events = useAppSelector(s => s.schedule.events)
   const courses = useAppSelector(s => s.courses.list)
@@ -572,32 +931,18 @@ function EventsTab() {
 
   const saveEvent = async () => {
     if (!eForm.title || !eForm.date) { toast.error('Title and date are required'); return }
-    const course = courses.find(c => c.id === Number(eForm.courseId))
-    const paper = subjects.find(s => s.id === Number(eForm.paperId))
-    const teacher = teachers.find(t => t.id === Number(eForm.teacherId))
-    const payload = {
-      ...eForm,
-      courseId: Number(eForm.courseId) || null,
-      semesterId: Number(eForm.semesterId) || null,
-      paperId: Number(eForm.paperId) || null,
-      teacherId: Number(eForm.teacherId) || null,
-      courseName: course?.title || '',
-      paperName: paper?.name || '',
-      teacherName: teacher?.name || '',
-      link: eForm.type === 'LiveClass' ? eForm.link : null,
-    }
     const apiPayload = {
-      title: payload.title,
-      type: payload.type,
-      course: payload.courseId || null,
-      semester: payload.semesterId || null,
-      subject: payload.paperId || null,
-      teacher: payload.teacherId || null,
-      date: payload.date,
-      start_time: payload.startTime,
-      end_time: payload.endTime,
-      link: payload.link || '',
-      target_students: payload.targetStudents || 'all',
+      title: eForm.title,
+      type: eForm.type,
+      course: Number(eForm.courseId) || null,
+      semester: Number(eForm.semesterId) || null,
+      subject: Number(eForm.paperId) || null,
+      teacher: Number(eForm.teacherId) || null,
+      date: eForm.date,
+      start_time: eForm.startTime,
+      end_time: eForm.endTime,
+      link: eForm.type === 'LiveClass' ? eForm.link : '',
+      target_students: eForm.targetStudents || 'all',
     }
     if (editEvent) {
       const result = await dispatch(updateEventThunk({ id: editEvent.id, data: apiPayload }))
@@ -614,7 +959,6 @@ function EventsTab() {
   const TYPE_FILTER_OPTIONS = [
     { label: 'All', value: 'All' },
     { label: 'Live Class', value: 'LiveClass' },
-    { label: 'Exam', value: 'Exam' },
     { label: 'Activity', value: 'Activity' },
   ]
 
@@ -706,9 +1050,6 @@ function EventsTab() {
                         Join
                       </Button>
                     )}
-                    {ev.type === 'Exam' && (
-                      <Button size="sm" onClick={() => navigate('/quizzes')}>Start</Button>
-                    )}
                     {ev.type === 'Activity' && (
                       <Button size="sm" variant="secondary">View</Button>
                     )}
@@ -767,10 +1108,9 @@ function EventsTab() {
           </div>
           <div>
             <label className="text-sm font-medium text-gray-700 block mb-2">Type</label>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               {[
                 { value: 'LiveClass', label: 'Live Class', Icon: Video },
-                { value: 'Exam', label: 'Exam', Icon: FileText },
                 { value: 'Activity', label: 'Activity', Icon: ClipboardList },
               ].map(({ value, label, Icon }) => (
                 <button
@@ -899,19 +1239,19 @@ function EventsTab() {
 
 export default function SchedulePage() {
   const dispatch = useAppDispatch()
-  const courseSchedules = useAppSelector(s => s.schedule.courseSchedules)
-  const events = useAppSelector(s => s.schedule.events)
-  const courseContentLessons = useAppSelector(s => s.courseContent.lessons)
 
   const [activeTab, setActiveTab] = useState(0)
 
   useEffect(() => {
+    dispatch(fetchCoursesThunk())
+    dispatch(fetchTeachersThunk())
     dispatch(fetchCourseSchedulesThunk())
     dispatch(fetchEventsThunk())
     dispatch(fetchSemestersThunk())
     dispatch(fetchSubjectsThunk())
     dispatch(fetchChaptersThunk())
     dispatch(fetchLessonsThunk())
+    dispatch(fetchQuizzesThunk())
   }, [dispatch])
 
   const TABS = ['Study Schedule', 'Events']
