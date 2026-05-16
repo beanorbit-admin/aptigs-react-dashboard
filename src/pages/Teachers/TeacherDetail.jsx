@@ -8,6 +8,7 @@ import Badge from '../../components/common/Badge'
 import Modal from '../../components/common/Modal'
 import { useAppDispatch, useAppSelector } from '../../hooks/redux'
 import { fetchTeachersThunk, resetTeacherPasswordThunk } from '../../store/slices/teacherSlice'
+import CardSkeleton from '../../components/common/CardSkeleton'
 
 function getInitials(name) {
   return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
@@ -22,6 +23,7 @@ export default function TeacherDetail() {
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
   const teacher = useAppSelector(state => state.teachers.list.find(t => t.id === Number(id)))
+  const teacherLoading = useAppSelector(state => state.teachers.loading)
 
   const [pwModal, setPwModal] = useState(false)
   const [newPw, setNewPw] = useState('')
@@ -29,6 +31,12 @@ export default function TeacherDetail() {
   useEffect(() => {
     dispatch(fetchTeachersThunk())
   }, [dispatch])
+
+  if (teacherLoading && !teacher) return (
+    <PageWrapper title="Teacher Detail">
+      <CardSkeleton count={2} />
+    </PageWrapper>
+  )
 
   if (!teacher) return (
     <PageWrapper title="Teacher Detail">

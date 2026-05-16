@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Pencil, Trash2, Eye } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -7,9 +7,10 @@ import Button from '../../components/common/Button'
 import Badge from '../../components/common/Badge'
 import Modal from '../../components/common/Modal'
 import DataTable from '../../components/common/DataTable'
-import { useAppDispatch, useAppSelector } from '../../hooks/redux'
-import { fetchQuizzesThunk, deleteQuizThunk } from '../../store/slices/quizSlice'
-import { fetchQuestionsThunk } from '../../store/slices/questionSlice'
+import { useAppDispatch } from '../../hooks/redux'
+import { deleteQuizThunk } from '../../store/slices/quizSlice'
+import { useApiQuery } from '../../hooks/useApiQuery'
+import api from '../../services/api'
 
 const PAGE_SIZE = 10
 
@@ -21,35 +22,30 @@ const FILTER_CONFIGS = [
 export default function QuizList() {
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
-  const quizzes = useAppSelector(state => state.quizzes.list)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [query, setQuery] = useState({ search: '', filters: {}, page: 1 })
 
-  useEffect(() => {
-    dispatch(fetchQuizzesThunk())
-    dispatch(fetchQuestionsThunk())
-  }, [dispatch])
+  const { data, loading, refetch } = useApiQuery(
+    (signal) => api.get('quizzes/', {
+      params: {
+        search: query.search || undefined,
+        page: query.page,
+        status: query.filters?.status !== 'All' ? query.filters.status : undefined,
+        quiz_type: query.filters?.quiz_type !== 'All' ? query.filters.quiz_type : undefined,
+      },
+      signal,
+    }).then(r => r.data),
+    [query.search, query.page, query.filters?.status, query.filters?.quiz_type]
+  )
 
-  const { rows, total } = useMemo(() => {
-    const s = (query.search || '').toLowerCase()
-    const { status = 'All', quiz_type = 'All' } = query.filters || {}
-    const filtered = quizzes.filter(q => {
-      if (s && ![q.title, q.course_title].some(v => (v || '').toLowerCase().includes(s))) return false
-      if (status !== 'All' && q.status !== status) return false
-      if (quiz_type !== 'All' && q.quiz_type !== quiz_type) return false
-      return true
-    })
-    return {
-      rows: filtered.slice((query.page - 1) * PAGE_SIZE, query.page * PAGE_SIZE),
-      total: filtered.length,
-    }
-  }, [quizzes, query])
+  const rows = data?.results ?? []
+  const total = data?.count ?? 0
 
   const handleQuery = useCallback((q) => setQuery(q), [])
 
   const confirmDelete = async () => {
     const result = await dispatch(deleteQuizThunk(deleteTarget.id))
-    if (result.meta.requestStatus === 'fulfilled') toast.success('Quiz deleted')
+    if (result.meta.requestStatus === 'fulfilled') { toast.success('Quiz deleted'); refetch() }
     else toast.error('Delete failed')
     setDeleteTarget(null)
   }
@@ -104,6 +100,7 @@ export default function QuizList() {
         columns={columns}
         data={rows}
         total={total}
+        loading={loading}
         searchPlaceholder="Search by title or course..."
         filterConfigs={FILTER_CONFIGS}
         pageSize={PAGE_SIZE}

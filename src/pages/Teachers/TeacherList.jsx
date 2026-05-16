@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Eye, Pencil, Trash2, Copy, RefreshCw } from 'lucide-react'
 import { useForm } from 'react-hook-form'
@@ -9,8 +9,10 @@ import Badge from '../../components/common/Badge'
 import Modal from '../../components/common/Modal'
 import DataTable from '../../components/common/DataTable'
 import { useAppDispatch, useAppSelector } from '../../hooks/redux'
-import { fetchTeachersThunk, createTeacherThunk, updateTeacherThunk, deleteTeacherThunk, resetTeacherPasswordThunk } from '../../store/slices/teacherSlice'
+import { createTeacherThunk, updateTeacherThunk, deleteTeacherThunk, resetTeacherPasswordThunk } from '../../store/slices/teacherSlice'
 import { fetchCoursesThunk } from '../../store/slices/courseSlice'
+import { useApiQuery } from '../../hooks/useApiQuery'
+import api from '../../services/api'
 
 const PAGE_SIZE = 10
 const FILTER_CONFIGS = [
@@ -39,7 +41,6 @@ function ToggleSwitch({ checked, onChange }) {
 export default function TeacherList() {
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
-  const teachers = useAppSelector(state => state.teachers.list)
   const courses = useAppSelector(state => state.courses.list)
 
   const [query, setQuery] = useState({ search: '', filters: {}, page: 1 })
@@ -52,24 +53,22 @@ export default function TeacherList() {
 
   const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm()
 
-  useEffect(() => {
-    dispatch(fetchTeachersThunk())
-    dispatch(fetchCoursesThunk())
-  }, [dispatch])
+  useEffect(() => { dispatch(fetchCoursesThunk()) }, [dispatch])
 
-  const { rows, total } = useMemo(() => {
-    const s = (query.search || '').toLowerCase()
-    const { status = 'All' } = query.filters || {}
-    const filtered = teachers.filter(t => {
-      if (s && ![t.name, t.email].some(v => (v || '').toLowerCase().includes(s))) return false
-      if (status !== 'All' && t.status !== status) return false
-      return true
-    })
-    return {
-      rows: filtered.slice((query.page - 1) * PAGE_SIZE, query.page * PAGE_SIZE),
-      total: filtered.length,
-    }
-  }, [teachers, query])
+  const { data, loading, refetch } = useApiQuery(
+    (signal) => api.get('auth/teachers/', {
+      params: {
+        search: query.search || undefined,
+        page: query.page,
+        status: query.filters?.status !== 'All' ? query.filters.status : undefined,
+      },
+      signal,
+    }).then(r => r.data),
+    [query.search, query.page, query.filters?.status]
+  )
+
+  const rows = data?.results ?? []
+  const total = data?.count ?? 0
 
   const handleQuery = useCallback((q) => setQuery(q), [])
 
@@ -108,12 +107,13 @@ export default function TeacherList() {
     }
     if (editTarget) {
       const result = await dispatch(updateTeacherThunk({ id: editTarget.id, data: payload }))
-      if (result.meta.requestStatus === 'fulfilled') { toast.success('Teacher updated'); closeModal() }
+      if (result.meta.requestStatus === 'fulfilled') { toast.success('Teacher updated'); closeModal(); refetch() }
       else toast.error('Update failed')
     } else {
       const result = await dispatch(createTeacherThunk(payload))
       if (result.meta.requestStatus === 'fulfilled') {
         setCredentials({ email: data.email, password: data.password })
+        refetch()
         toast.success('Teacher added — share credentials')
       } else {
         toast.error('Failed to add teacher')
@@ -123,7 +123,7 @@ export default function TeacherList() {
 
   const confirmDelete = async () => {
     const result = await dispatch(deleteTeacherThunk(deleteTarget.id))
-    if (result.meta.requestStatus === 'fulfilled') toast.success('Teacher deleted')
+    if (result.meta.requestStatus === 'fulfilled') { toast.success('Teacher deleted'); refetch() }
     else toast.error('Delete failed')
     setDeleteTarget(null)
   }
@@ -154,6 +154,7 @@ export default function TeacherList() {
         columns={columns}
         data={rows}
         total={total}
+        loading={loading}
         searchPlaceholder="Search by name or email..."
         filterConfigs={FILTER_CONFIGS}
         pageSize={PAGE_SIZE}

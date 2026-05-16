@@ -14,6 +14,7 @@ import { fetchStudentThunk, updateStudentThunk, deleteStudentThunk } from '../..
 import { fetchCoursesThunk } from '../../store/slices/courseSlice'
 import { fetchEnrollmentsThunk, createEnrollmentThunk } from '../../store/slices/enrollmentSlice'
 import { formatCurrency, formatDate } from '../../utils/formatters'
+import CardSkeleton from '../../components/common/CardSkeleton'
 
 const statusVariant = { Paid: 'success', Partial: 'warning', Pending: 'danger' }
 
@@ -29,6 +30,7 @@ export default function StudentDetail() {
   const dispatch = useAppDispatch()
 
   const student = useAppSelector(state => state.students.selected?.id === Number(id) ? state.students.selected : state.students.list.find(s => s.id === Number(id)))
+  const studentLoading = useAppSelector(state => state.students.loading)
   const courses = useAppSelector(state => state.courses.list)
   const enrollments = useAppSelector(state => state.enrollments.list.filter(e => e.student === Number(id)))
 
@@ -44,6 +46,12 @@ export default function StudentDetail() {
   const [selectedCourseId, setSelectedCourseId] = useState('')
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm()
+
+  if (studentLoading && !student) return (
+    <PageWrapper title="Student Detail">
+      <CardSkeleton count={3} />
+    </PageWrapper>
+  )
 
   if (!student) return (
     <PageWrapper title="Student Detail">

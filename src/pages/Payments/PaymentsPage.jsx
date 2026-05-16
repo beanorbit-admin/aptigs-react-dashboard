@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Download } from 'lucide-react'
 import PageWrapper from '../../components/layout/PageWrapper'
@@ -6,7 +6,12 @@ import Badge from '../../components/common/Badge'
 import Button from '../../components/common/Button'
 import Table from '../../components/common/Table'
 import Pagination from '../../components/common/Pagination'
-import { useAppSelector } from '../../hooks/redux'
+import SearchInput from '../../components/common/SearchInput'
+import SkeletonRow from '../../components/common/SkeletonRow'
+import { useAppDispatch, useAppSelector } from '../../hooks/redux'
+import { fetchCoursesThunk } from '../../store/slices/courseSlice'
+import { useApiQuery } from '../../hooks/useApiQuery'
+import api from '../../services/api'
 import { formatCurrency, formatDate } from '../../utils/formatters'
 
 const statusVariant = { Paid: 'success', Partial: 'warning', Pending: 'danger' }
@@ -14,7 +19,7 @@ const PAGE_SIZE = 10
 
 export default function PaymentsPage() {
   const navigate = useNavigate()
-  const enrollments = useAppSelector(state => state.enrollments.list)
+  const dispatch = useAppDispatch()
   const courses = useAppSelector(state => state.courses.list)
 
   const [statusFilter, setStatusFilter] = useState('All')
@@ -24,25 +29,35 @@ export default function PaymentsPage() {
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
 
-  const filtered = enrollments.filter(e => {
-    if (statusFilter !== 'All' && e.status !== statusFilter) return false
-    if (courseFilter !== 'All' && e.course_title !== courseFilter) return false
-    if (fromDate && e.payment_date && e.payment_date < fromDate) return false
-    if (toDate && e.payment_date && e.payment_date > toDate) return false
-    if (search && !(e.student_name || '').toLowerCase().includes(search.toLowerCase())) return false
-    return true
-  })
+  useEffect(() => { dispatch(fetchCoursesThunk()) }, [dispatch])
 
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  const { data, loading } = useApiQuery(
+    (signal) => api.get('enrollments/', {
+      params: {
+        access_status: 'granted',
+        search: search || undefined,
+        page,
+        status: statusFilter !== 'All' ? statusFilter : undefined,
+        course_title: courseFilter !== 'All' ? courseFilter : undefined,
+        payment_date_after: fromDate || undefined,
+        payment_date_before: toDate || undefined,
+      },
+      signal,
+    }).then(r => r.data),
+    [search, page, statusFilter, courseFilter, fromDate, toDate]
+  )
 
-  const totalFee = filtered.reduce((s, e) => s + (e.course_fee || 0), 0)
-  const totalCollected = filtered.reduce((s, e) => s + (e.collected_amount || 0), 0)
+  const paginated = data?.results ?? []
+  const totalPages = Math.ceil((data?.count ?? 0) / PAGE_SIZE)
+
+  // Summary totals reflect the current page only (pagination trade-off)
+  const totalFee = paginated.reduce((s, e) => s + (e.course_fee || 0), 0)
+  const totalCollected = paginated.reduce((s, e) => s + (e.collected_amount || 0), 0)
   const totalBalance = totalFee - totalCollected
 
   const exportCSV = () => {
     const headers = ['Student', 'Course', 'Fee', 'Collected', 'Balance', 'Payment Date', 'Status']
-    const rows = filtered.map(e => [
+    const rows = paginated.map(e => [
       e.student_name, e.course_title, e.course_fee, e.collected_amount,
       e.course_fee - e.collected_amount, e.payment_date || '', e.status,
     ])
@@ -56,7 +71,7 @@ export default function PaymentsPage() {
     URL.revokeObjectURL(url)
   }
 
-  const uniqueCourses = [...new Set(enrollments.map(e => e.course_title).filter(Boolean))]
+  const uniqueCourses = [...new Set(courses.map(c => c.title).filter(Boolean))]
 
   const columns = [
     { header: 'Student', cell: e => <span className="font-medium text-gray-900">{e.student_name}</span> },
@@ -78,7 +93,7 @@ export default function PaymentsPage() {
 
   return (
     <PageWrapper title="Payment Management">
-      {/* Custom filter toolbar (date range + multi-select cannot fit DataTable's FilterConfig) */}
+      {/* Custom filter toolbar */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1) }}
           className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
@@ -93,8 +108,11 @@ export default function PaymentsPage() {
           className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
         <input type="date" value={toDate} onChange={e => { setToDate(e.target.value); setPage(1) }}
           className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-        <input placeholder="Search student..." value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-44" />
+        <SearchInput
+          value={search}
+          onChange={v => { setSearch(v); setPage(1) }}
+          placeholder="Search student..."
+        />
         <div className="ml-auto">
           <Button variant="secondary" size="sm" onClick={exportCSV}>
             <Download className="h-4 w-4" /> Export CSV
@@ -116,7 +134,26 @@ export default function PaymentsPage() {
         ))}
       </div>
 
-      <Table columns={columns} data={paginated} />
+      {loading ? (
+        <div className="overflow-x-auto rounded-xl border border-gray-200">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-white">
+              <tr>
+                {columns.map((col, i) => (
+                  <th key={i} className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500 tracking-wider">
+                    {col.header}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              <SkeletonRow cols={columns.length} rows={PAGE_SIZE} />
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <Table columns={columns} data={paginated} />
+      )}
       <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
     </PageWrapper>
   )

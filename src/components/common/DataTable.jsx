@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Search } from 'lucide-react'
 import Table from './Table'
 import Pagination from './Pagination'
+import SkeletonRow from './SkeletonRow'
 
 export default function DataTable({
   columns,
@@ -30,7 +31,7 @@ export default function DataTable({
     setPage(1)
     queryRef.current = { ...queryRef.current, search: val, page: 1 }
     clearTimeout(searchTimer.current)
-    searchTimer.current = setTimeout(() => onQueryChange?.(queryRef.current), 300)
+    searchTimer.current = setTimeout(() => onQueryChange?.(queryRef.current), 350)
   }
 
   const handleFilter = (key, val) => {
@@ -79,8 +80,21 @@ export default function DataTable({
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-12">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" />
+        <div className="overflow-x-auto rounded-xl border border-gray-200">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-white">
+              <tr>
+                {columns.map((col, i) => (
+                  <th key={i} className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500 tracking-wider">
+                    {col.header}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              <SkeletonRow cols={columns.length} rows={pageSize} />
+            </tbody>
+          </table>
         </div>
       ) : (
         <Table columns={columns} data={data} />

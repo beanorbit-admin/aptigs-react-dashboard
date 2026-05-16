@@ -5,23 +5,34 @@ import PageWrapper from '../../components/layout/PageWrapper'
 import Button from '../../components/common/Button'
 import Table from '../../components/common/Table'
 import Modal from '../../components/common/Modal'
+import SearchInput from '../../components/common/SearchInput'
+import SkeletonRow from '../../components/common/SkeletonRow'
 import { useAppDispatch, useAppSelector } from '../../hooks/redux'
-import { fetchCategoriesThunk, fetchCoursesThunk, createCategoryThunk, updateCategoryThunk, deleteCategoryThunk } from '../../store/slices/courseSlice'
+import { fetchCoursesThunk, createCategoryThunk, updateCategoryThunk, deleteCategoryThunk } from '../../store/slices/courseSlice'
+import { useApiQuery } from '../../hooks/useApiQuery'
+import api from '../../services/api'
 
 export default function Categories() {
   const dispatch = useAppDispatch()
-  const categories = useAppSelector(state => state.courses.categories)
   const courses = useAppSelector(state => state.courses.list)
 
+  const [search, setSearch] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [editTarget, setEditTarget] = useState(null)
   const [name, setName] = useState('')
   const [deleteTarget, setDeleteTarget] = useState(null)
 
-  useEffect(() => {
-    dispatch(fetchCategoriesThunk())
-    dispatch(fetchCoursesThunk())
-  }, [dispatch])
+  useEffect(() => { dispatch(fetchCoursesThunk()) }, [dispatch])
+
+  const { data, loading, refetch } = useApiQuery(
+    (signal) => api.get('categories/', {
+      params: { search: search || undefined },
+      signal,
+    }).then(r => r.data),
+    [search]
+  )
+
+  const categories = Array.isArray(data) ? data : (data?.results ?? [])
 
   const openAdd = () => { setEditTarget(null); setName(''); setModalOpen(true) }
   const openEdit = (cat) => { setEditTarget(cat); setName(cat.name); setModalOpen(true) }
@@ -34,6 +45,7 @@ export default function Categories() {
     if (result.meta.requestStatus === 'fulfilled') {
       toast.success(editTarget ? 'Category updated' : 'Category added')
       setModalOpen(false)
+      refetch()
     } else {
       toast.error('Save failed')
     }
@@ -41,7 +53,7 @@ export default function Categories() {
 
   const confirmDelete = async () => {
     const result = await dispatch(deleteCategoryThunk(deleteTarget.id))
-    if (result.meta.requestStatus === 'fulfilled') toast.success('Category deleted')
+    if (result.meta.requestStatus === 'fulfilled') { toast.success('Category deleted'); refetch() }
     else toast.error('Delete failed')
     setDeleteTarget(null)
   }
@@ -70,10 +82,33 @@ export default function Categories() {
   return (
     <PageWrapper title="Course Categories">
       <div className="flex justify-between items-center mb-4">
-        <p className="text-sm text-gray-500">{categories.length} categories</p>
+        <div className="flex items-center gap-3">
+          <p className="text-sm text-gray-500">{loading ? '...' : categories.length} categories</p>
+          <SearchInput value={search} onChange={setSearch} placeholder="Search categories..." />
+        </div>
         <Button onClick={openAdd}>+ Add Category</Button>
       </div>
-      <Table columns={columns} data={categories} />
+
+      {loading ? (
+        <div className="overflow-x-auto rounded-xl border border-gray-200">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-white">
+              <tr>
+                {columns.map((col, i) => (
+                  <th key={i} className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500 tracking-wider">
+                    {col.header}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              <SkeletonRow cols={columns.length} rows={5} />
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <Table columns={columns} data={categories} />
+      )}
 
       <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editTarget ? 'Edit Category' : 'Add Category'} size="sm">
         <div className="space-y-4">

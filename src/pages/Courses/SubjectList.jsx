@@ -2,11 +2,13 @@ import { useEffect, useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
-import { ArrowLeft, ChevronRight, Pencil, Trash2, Plus, FileText, Search } from 'lucide-react'
+import { ArrowLeft, ChevronRight, Pencil, Trash2, Plus, FileText } from 'lucide-react'
 import PageWrapper from '../../components/layout/PageWrapper'
 import Button from '../../components/common/Button'
 import Modal from '../../components/common/Modal'
 import Input from '../../components/common/Input'
+import SearchInput from '../../components/common/SearchInput'
+import CardSkeleton from '../../components/common/CardSkeleton'
 import { useAppDispatch, useAppSelector } from '../../hooks/redux'
 import {
   fetchSemestersThunk, fetchSubjectsThunk, fetchChaptersThunk,
@@ -20,18 +22,12 @@ export default function SubjectList() {
   const dispatch = useAppDispatch()
 
   const courses = useAppSelector(s => s.courses.list)
-  const { semesters, subjects, chapters } = useAppSelector(s => s.courseContent)
+  const { semesters, subjects, chapters, loading: contentLoading } = useAppSelector(s => s.courseContent)
 
-  const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [editTarget, setEditTarget] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
-
-  useEffect(() => {
-    const t = setTimeout(() => setSearch(searchInput), 300)
-    return () => clearTimeout(t)
-  }, [searchInput])
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm()
 
@@ -91,6 +87,12 @@ export default function SubjectList() {
     setDeleteTarget(null)
   }
 
+  if (contentLoading && !semester) return (
+    <PageWrapper title="Subjects">
+      <CardSkeleton count={6} />
+    </PageWrapper>
+  )
+
   if (!course || !semester) return null
 
   return (
@@ -131,18 +133,14 @@ export default function SubjectList() {
       </div>
 
       {/* Search bar */}
-      <div className="relative mb-5">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-        <input
-          value={searchInput}
-          onChange={e => setSearchInput(e.target.value)}
-          placeholder="Search subjects..."
-          className="w-full sm:w-72 pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        />
+      <div className="mb-5">
+        <SearchInput value={search} onChange={setSearch} placeholder="Search subjects..." />
       </div>
 
       {/* Subjects grid */}
-      {semSubjects.length === 0 ? (
+      {contentLoading && semSubjects.length === 0 ? (
+        <CardSkeleton count={6} />
+      ) : semSubjects.length === 0 ? (
         <div className="bg-white rounded-xl shadow-sm p-16 text-center">
           <FileText className="h-10 w-10 text-gray-300 mx-auto mb-3" />
           <p className="text-sm text-gray-400">No subjects yet. Add the first one.</p>

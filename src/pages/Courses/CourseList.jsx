@@ -8,16 +8,17 @@ import Badge from '../../components/common/Badge'
 import Modal from '../../components/common/Modal'
 import DataTable from '../../components/common/DataTable'
 import { useAppDispatch, useAppSelector } from '../../hooks/redux'
-import { fetchCoursesThunk, fetchCategoriesThunk, createCourseThunk, updateCourseThunk, deleteCourseThunk } from '../../store/slices/courseSlice'
+import { fetchCategoriesThunk, createCourseThunk, updateCourseThunk, deleteCourseThunk } from '../../store/slices/courseSlice'
 import { formatCurrency } from '../../utils/formatters'
 import CourseFormModal from './CourseFormModal'
+import { useApiQuery } from '../../hooks/useApiQuery'
+import api from '../../services/api'
 
 const PAGE_SIZE = 10
 
 export default function CourseList() {
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
-  const courses = useAppSelector(state => state.courses.list)
   const categories = useAppSelector(state => state.courses.categories)
 
   const [query, setQuery] = useState({ search: '', filters: {}, page: 1 })
@@ -25,30 +26,28 @@ export default function CourseList() {
   const [editTarget, setEditTarget] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
 
-  useEffect(() => {
-    dispatch(fetchCoursesThunk())
-    dispatch(fetchCategoriesThunk())
-  }, [dispatch])
+  useEffect(() => { dispatch(fetchCategoriesThunk()) }, [dispatch])
 
   const filterConfigs = useMemo(() => [
     { key: 'category', label: 'All Categories', options: categories.map(c => c.name) },
     { key: 'status', label: 'All Statuses', options: ['Active', 'Inactive'] },
   ], [categories])
 
-  const { rows, total } = useMemo(() => {
-    const s = (query.search || '').toLowerCase()
-    const { category = 'All', status = 'All' } = query.filters || {}
-    const filtered = courses.filter(c => {
-      if (s && !c.title.toLowerCase().includes(s)) return false
-      if (category !== 'All' && c.category !== category) return false
-      if (status !== 'All' && c.status !== status) return false
-      return true
-    })
-    return {
-      rows: filtered.slice((query.page - 1) * PAGE_SIZE, query.page * PAGE_SIZE),
-      total: filtered.length,
-    }
-  }, [courses, query])
+  const { data, loading, refetch } = useApiQuery(
+    (signal) => api.get('courses/', {
+      params: {
+        search: query.search || undefined,
+        page: query.page,
+        category: query.filters?.category !== 'All' ? query.filters.category : undefined,
+        status: query.filters?.status !== 'All' ? query.filters.status : undefined,
+      },
+      signal,
+    }).then(r => r.data),
+    [query.search, query.page, query.filters?.category, query.filters?.status]
+  )
+
+  const rows = data?.results ?? []
+  const total = data?.count ?? 0
 
   const handleQuery = useCallback((q) => setQuery(q), [])
 
@@ -62,6 +61,7 @@ export default function CourseList() {
     if (result.meta.requestStatus === 'fulfilled') {
       toast.success(editTarget ? 'Course updated' : 'Course added')
       setModalOpen(false)
+      refetch()
     } else {
       toast.error('Save failed')
     }
@@ -69,7 +69,7 @@ export default function CourseList() {
 
   const confirmDelete = async () => {
     const result = await dispatch(deleteCourseThunk(deleteTarget.id))
-    if (result.meta.requestStatus === 'fulfilled') toast.success('Course deleted')
+    if (result.meta.requestStatus === 'fulfilled') { toast.success('Course deleted'); refetch() }
     else toast.error('Delete failed')
     setDeleteTarget(null)
   }
@@ -102,6 +102,7 @@ export default function CourseList() {
         columns={columns}
         data={rows}
         total={total}
+        loading={loading}
         searchPlaceholder="Search courses..."
         filterConfigs={filterConfigs}
         pageSize={PAGE_SIZE}

@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Check, X, Pencil } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -7,9 +7,11 @@ import Badge from '../../components/common/Badge'
 import Button from '../../components/common/Button'
 import Modal from '../../components/common/Modal'
 import DataTable from '../../components/common/DataTable'
-import { useAppDispatch, useAppSelector } from '../../hooks/redux'
-import { fetchEnrollmentsThunk, updateEnrollmentThunk, deleteEnrollmentThunk } from '../../store/slices/enrollmentSlice'
+import { useAppDispatch } from '../../hooks/redux'
+import { updateEnrollmentThunk, deleteEnrollmentThunk } from '../../store/slices/enrollmentSlice'
 import { formatCurrency, formatDate } from '../../utils/formatters'
+import { useApiQuery } from '../../hooks/useApiQuery'
+import api from '../../services/api'
 
 const statusVariant = { Paid: 'success', Partial: 'warning', Pending: 'danger' }
 const PAGE_SIZE = 10
@@ -28,9 +30,6 @@ const ACTIVE_FILTER_CONFIGS = [
 export default function EnrollmentsPage() {
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
-  const enrollments = useAppSelector(state => state.enrollments.list)
-
-  useEffect(() => { dispatch(fetchEnrollmentsThunk()) }, [dispatch])
 
   const [tab, setTab] = useState('pending')
 
@@ -46,21 +45,20 @@ export default function EnrollmentsPage() {
   const [editForm, setEditForm] = useState({ collectedAmount: '', paymentDate: '' })
 
   // --- Pending requests ---
-  const pendingEnrollments = useMemo(
-    () => enrollments.filter(e => e.access_status === 'pending_approval'),
-    [enrollments]
+  const { data: pendingData, loading: pendingLoading, refetch: refetchPending } = useApiQuery(
+    (signal) => api.get('enrollments/', {
+      params: {
+        access_status: 'pending_approval',
+        search: pendingQuery.search || undefined,
+        page: pendingQuery.page,
+      },
+      signal,
+    }).then(r => r.data),
+    [pendingQuery.search, pendingQuery.page]
   )
 
-  const { rows: pendingRows, total: pendingTotal } = useMemo(() => {
-    const s = (pendingQuery.search || '').toLowerCase()
-    const filtered = s
-      ? pendingEnrollments.filter(e => (e.student_name || '').toLowerCase().includes(s))
-      : pendingEnrollments
-    return {
-      rows: filtered.slice((pendingQuery.page - 1) * PAGE_SIZE, pendingQuery.page * PAGE_SIZE),
-      total: filtered.length,
-    }
-  }, [pendingEnrollments, pendingQuery])
+  const pendingRows = pendingData?.results ?? []
+  const pendingTotal = pendingData?.count ?? 0
 
   const handlePendingQuery = useCallback((q) => setPendingQuery(q), [])
 
@@ -79,15 +77,24 @@ export default function EnrollmentsPage() {
         payment_date: approveForm.paymentDate || null,
       },
     }))
-    if (result.meta.requestStatus === 'fulfilled') toast.success(`${approveTarget.student_name} approved and access granted`)
-    else toast.error('Approval failed')
+    if (result.meta.requestStatus === 'fulfilled') {
+      toast.success(`${approveTarget.student_name} approved and access granted`)
+      refetchPending()
+      refetchActive()
+    } else {
+      toast.error('Approval failed')
+    }
     setApproveTarget(null)
   }
 
   const onReject = async () => {
     const result = await dispatch(deleteEnrollmentThunk(rejectTarget.id))
-    if (result.meta.requestStatus === 'fulfilled') toast.success(`Enrollment request for ${rejectTarget.student_name} rejected`)
-    else toast.error('Rejection failed')
+    if (result.meta.requestStatus === 'fulfilled') {
+      toast.success(`Enrollment request for ${rejectTarget.student_name} rejected`)
+      refetchPending()
+    } else {
+      toast.error('Rejection failed')
+    }
     setRejectTarget(null)
   }
 
@@ -127,24 +134,21 @@ export default function EnrollmentsPage() {
   ]
 
   // --- Active enrollments ---
-  const activeEnrollments = useMemo(
-    () => enrollments.filter(e => e.access_status === 'granted'),
-    [enrollments]
+  const { data: activeData, loading: activeLoading, refetch: refetchActive } = useApiQuery(
+    (signal) => api.get('enrollments/', {
+      params: {
+        access_status: 'granted',
+        search: activeQuery.search || undefined,
+        page: activeQuery.page,
+        status: activeQuery.filters?.status !== 'All' ? activeQuery.filters.status : undefined,
+      },
+      signal,
+    }).then(r => r.data),
+    [activeQuery.search, activeQuery.page, activeQuery.filters?.status]
   )
 
-  const { rows: activeRows, total: activeTotal } = useMemo(() => {
-    const s = (activeQuery.search || '').toLowerCase()
-    const { status = 'All' } = activeQuery.filters || {}
-    const filtered = activeEnrollments.filter(e => {
-      if (s && !(e.student_name || '').toLowerCase().includes(s)) return false
-      if (status !== 'All' && e.status !== status) return false
-      return true
-    })
-    return {
-      rows: filtered.slice((activeQuery.page - 1) * PAGE_SIZE, activeQuery.page * PAGE_SIZE),
-      total: filtered.length,
-    }
-  }, [activeEnrollments, activeQuery])
+  const activeRows = activeData?.results ?? []
+  const activeTotal = activeData?.count ?? 0
 
   const handleActiveQuery = useCallback((q) => setActiveQuery(q), [])
 
@@ -161,8 +165,12 @@ export default function EnrollmentsPage() {
         payment_date: editForm.paymentDate || null,
       },
     }))
-    if (result.meta.requestStatus === 'fulfilled') toast.success('Payment details updated')
-    else toast.error('Update failed')
+    if (result.meta.requestStatus === 'fulfilled') {
+      toast.success('Payment details updated')
+      refetchActive()
+    } else {
+      toast.error('Update failed')
+    }
     setEditTarget(null)
   }
 
@@ -207,11 +215,11 @@ export default function EnrollmentsPage() {
           }`}
         >
           Pending Requests
-          {pendingEnrollments.length > 0 && (
+          {pendingTotal > 0 && (
             <span className={`inline-flex items-center justify-center h-5 min-w-5 px-1 rounded-full text-xs font-semibold ${
               tab === 'pending' ? 'bg-white text-indigo-600' : 'bg-amber-100 text-amber-700'
             }`}>
-              {pendingEnrollments.length}
+              {pendingTotal}
             </span>
           )}
         </button>
@@ -227,7 +235,7 @@ export default function EnrollmentsPage() {
           <span className={`inline-flex items-center justify-center h-5 min-w-5 px-1 rounded-full text-xs font-semibold ${
             tab === 'active' ? 'bg-white text-indigo-600' : 'bg-gray-100 text-gray-600'
           }`}>
-            {activeEnrollments.length}
+            {activeTotal}
           </span>
         </button>
       </div>
@@ -235,7 +243,7 @@ export default function EnrollmentsPage() {
       {/* Pending Requests Tab */}
       {tab === 'pending' && (
         <>
-          {pendingEnrollments.length === 0 ? (
+          {!pendingLoading && pendingTotal === 0 && pendingQuery.search === '' ? (
             <div className="bg-white rounded-xl shadow-sm p-12 text-center text-gray-400">
               <p className="text-sm">No pending enrollment requests</p>
             </div>
@@ -244,6 +252,7 @@ export default function EnrollmentsPage() {
               columns={pendingColumns}
               data={pendingRows}
               total={pendingTotal}
+              loading={pendingLoading}
               searchPlaceholder="Search by student name..."
               pageSize={PAGE_SIZE}
               onQueryChange={handlePendingQuery}
@@ -258,6 +267,7 @@ export default function EnrollmentsPage() {
           columns={activeColumns}
           data={activeRows}
           total={activeTotal}
+          loading={activeLoading}
           searchPlaceholder="Search by student name..."
           filterConfigs={ACTIVE_FILTER_CONFIGS}
           pageSize={PAGE_SIZE}

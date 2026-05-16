@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { Users, BookOpen, GraduationCap, UserCheck, UserPlus, ClipboardList, Calendar } from 'lucide-react'
 import PageWrapper from '../../components/layout/PageWrapper'
 import Badge from '../../components/common/Badge'
+import CardSkeleton from '../../components/common/CardSkeleton'
+import SkeletonRow from '../../components/common/SkeletonRow'
 import { useAppDispatch, useAppSelector } from '../../hooks/redux'
 import { fetchDashboardStatsThunk } from '../../store/slices/courseSlice'
 import { fetchEnrollmentsThunk } from '../../store/slices/enrollmentSlice'
@@ -42,7 +44,9 @@ export default function DashboardPage() {
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
   const stats = useAppSelector(state => state.courses.stats)
+  const statsLoading = useAppSelector(state => state.courses.loading)
   const enrollments = useAppSelector(state => state.enrollments.list)
+  const enrollmentsLoading = useAppSelector(state => state.enrollments.loading)
 
   useEffect(() => {
     dispatch(fetchDashboardStatsThunk())
@@ -54,12 +58,16 @@ export default function DashboardPage() {
   return (
     <PageWrapper title="Dashboard">
       {/* Stats row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard icon={Users} label="Total Students" value={stats?.total_students} color="bg-indigo-100 text-indigo-600" />
-        <StatCard icon={BookOpen} label="Active Enrollments" value={stats?.active_enrollments} color="bg-emerald-100 text-emerald-600" />
-        <StatCard icon={GraduationCap} label="Total Courses" value={stats?.total_courses} color="bg-amber-100 text-amber-600" />
-        <StatCard icon={UserCheck} label="Total Teachers" value={stats?.total_teachers} color="bg-purple-100 text-purple-600" />
-      </div>
+      {statsLoading && !stats ? (
+        <div className="mb-8"><CardSkeleton count={4} /></div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <StatCard icon={Users} label="Total Students" value={stats?.total_students} color="bg-indigo-100 text-indigo-600" />
+          <StatCard icon={BookOpen} label="Active Enrollments" value={stats?.active_enrollments} color="bg-emerald-100 text-emerald-600" />
+          <StatCard icon={GraduationCap} label="Total Courses" value={stats?.total_courses} color="bg-amber-100 text-amber-600" />
+          <StatCard icon={UserCheck} label="Total Teachers" value={stats?.total_teachers} color="bg-purple-100 text-purple-600" />
+        </div>
+      )}
 
       {/* Recent Enrollments */}
       <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
@@ -74,16 +82,22 @@ export default function DashboardPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {recentEnrollments.map(e => (
-                <tr key={e.id} className="hover:bg-gray-50 transition">
-                  <td className="px-4 py-3 text-sm font-medium text-gray-900">{e.student_name}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{e.course_title}</td>
-                  <td className="px-4 py-3"><Badge variant={statusVariant[e.status]}>{e.status}</Badge></td>
-                  <td className="px-4 py-3 text-sm text-gray-500">{formatDate(e.payment_date)}</td>
-                </tr>
-              ))}
-              {recentEnrollments.length === 0 && (
-                <tr><td colSpan={4} className="px-4 py-8 text-center text-sm text-gray-400">No enrollments yet</td></tr>
+              {enrollmentsLoading ? (
+                <SkeletonRow cols={4} rows={5} />
+              ) : (
+                <>
+                  {recentEnrollments.map(e => (
+                    <tr key={e.id} className="hover:bg-gray-50 transition">
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900">{e.student_name}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{e.course_title}</td>
+                      <td className="px-4 py-3"><Badge variant={statusVariant[e.status]}>{e.status}</Badge></td>
+                      <td className="px-4 py-3 text-sm text-gray-500">{formatDate(e.payment_date)}</td>
+                    </tr>
+                  ))}
+                  {recentEnrollments.length === 0 && (
+                    <tr><td colSpan={4} className="px-4 py-8 text-center text-sm text-gray-400">No enrollments yet</td></tr>
+                  )}
+                </>
               )}
             </tbody>
           </table>

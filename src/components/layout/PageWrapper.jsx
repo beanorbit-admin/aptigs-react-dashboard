@@ -1,5 +1,6 @@
 import Sidebar from './Sidebar'
 import Header from './Header'
+import PageTransition from '../common/PageTransition'
 
 export default function PageWrapper({ title, children }) {
   return (
@@ -8,7 +9,9 @@ export default function PageWrapper({ title, children }) {
       <div className="flex-1 ml-60 flex flex-col">
         <Header title={title} />
         <main className="flex-1 mt-16 p-6 overflow-y-auto">
-          {children}
+          <PageTransition>
+            {children}
+          </PageTransition>
         </main>
       </div>
     </div>

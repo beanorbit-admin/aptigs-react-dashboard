@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import {
   CreditCard, HelpCircle, BookOpen, CheckCheck,
   Bell, Trash2, Send, Clock, ImageIcon, X, Search, Pencil,
@@ -12,13 +12,15 @@ import DataTable from '../../components/common/DataTable'
 import { useAppDispatch, useAppSelector } from '../../hooks/redux'
 import {
   fetchNotificationsThunk, markAsReadThunk, markAllAsReadThunk,
-  fetchScheduledThunk, createScheduledThunk, deleteScheduledThunk,
-  fetchSystemStatusThunk, sendNotificationNowThunk, fetchSentThunk,
+  createScheduledThunk, deleteScheduledThunk,
+  fetchSystemStatusThunk, sendNotificationNowThunk,
   updateSentThunk, deleteSentThunk,
 } from '../../store/slices/notificationSlice'
 import { fetchStudentsThunk } from '../../store/slices/studentSlice'
 import { fetchCoursesThunk } from '../../store/slices/courseSlice'
 import { formatDistanceToNow, formatDate } from '../../utils/formatters'
+import { useApiQuery } from '../../hooks/useApiQuery'
+import api from '../../services/api'
 
 const PAGE_SIZE = 10
 
@@ -132,7 +134,6 @@ function CreateNotificationModal({ isOpen, onClose, onCreated, courses, students
     }))
     if (result.meta.requestStatus === 'fulfilled') {
       const { warning, recipient_count } = result.payload
-      await dispatch(fetchSentThunk())
       if (warning) {
         toast(warning, { icon: '⚠️', duration: 6000 })
       } else {
@@ -164,7 +165,6 @@ function CreateNotificationModal({ isOpen, onClose, onCreated, courses, students
     }))
     if (result.meta.requestStatus === 'fulfilled') {
       const { warning } = result.payload
-      await dispatch(fetchScheduledThunk())
       if (warning) {
         toast(warning, { icon: '⚠️', duration: 6000 })
       } else {
@@ -460,8 +460,6 @@ export default function NotificationsPage() {
   const dispatch = useAppDispatch()
   const { role } = useAppSelector(state => state.auth)
   const notifications  = useAppSelector(state => state.notifications.list)
-  const sent           = useAppSelector(state => state.notifications.sent)
-  const scheduled      = useAppSelector(state => state.notifications.scheduled)
   const systemStatus   = useAppSelector(state => state.notifications.systemStatus)
   const sendLoading    = useAppSelector(state => state.notifications.sendLoading)
   const courses        = useAppSelector(state => state.courses.list)
@@ -476,32 +474,34 @@ export default function NotificationsPage() {
 
   useEffect(() => {
     dispatch(fetchNotificationsThunk())
-    dispatch(fetchScheduledThunk())
-    dispatch(fetchSentThunk())
     dispatch(fetchStudentsThunk())
     dispatch(fetchCoursesThunk())
     dispatch(fetchSystemStatusThunk())
   }, [dispatch])
 
   // ── Sent table data ────────────────────────────────────────────────────────
-  const { rows: sentRows, total: sentTotal } = useMemo(() => {
-    const s = (sentQuery.search || '').toLowerCase()
-    const filtered = sent.filter(n => !s || n.title?.toLowerCase().includes(s) || targetLabel(n).toLowerCase().includes(s))
-    return {
-      rows: filtered.slice((sentQuery.page - 1) * PAGE_SIZE, sentQuery.page * PAGE_SIZE),
-      total: filtered.length,
-    }
-  }, [sent, sentQuery])
+  const { data: sentData, loading: sentLoading, refetch: refetchSent } = useApiQuery(
+    (signal) => api.get('notifications/admin/', {
+      params: { is_sent: true, search: sentQuery.search || undefined, page: sentQuery.page },
+      signal,
+    }).then(r => r.data),
+    [sentQuery.search, sentQuery.page]
+  )
+
+  const sentRows  = sentData?.results ?? []
+  const sentTotal = sentData?.count ?? 0
 
   // ── Scheduled table data ───────────────────────────────────────────────────
-  const { rows: schedRows, total: schedTotal } = useMemo(() => {
-    const s = (scheduledQuery.search || '').toLowerCase()
-    const filtered = scheduled.filter(n => !s || n.title?.toLowerCase().includes(s) || targetLabel(n).toLowerCase().includes(s))
-    return {
-      rows: filtered.slice((scheduledQuery.page - 1) * PAGE_SIZE, scheduledQuery.page * PAGE_SIZE),
-      total: filtered.length,
-    }
-  }, [scheduled, scheduledQuery])
+  const { data: schedData, loading: schedLoading, refetch: refetchSched } = useApiQuery(
+    (signal) => api.get('notifications/admin/', {
+      params: { is_sent: false, search: scheduledQuery.search || undefined, page: scheduledQuery.page },
+      signal,
+    }).then(r => r.data),
+    [scheduledQuery.search, scheduledQuery.page]
+  )
+
+  const schedRows  = schedData?.results ?? []
+  const schedTotal = schedData?.count ?? 0
 
   const handleSentQuery      = useCallback(q => setSentQuery(q), [])
   const handleScheduledQuery = useCallback(q => setScheduledQuery(q), [])
@@ -548,7 +548,7 @@ export default function NotificationsPage() {
           <button
             onClick={async () => {
               const r = await dispatch(deleteSentThunk(n.id))
-              if (r.meta.requestStatus === 'fulfilled') toast.success('Notification deleted')
+              if (r.meta.requestStatus === 'fulfilled') { toast.success('Notification deleted'); refetchSent() }
               else toast.error('Delete failed')
             }}
             className="p-1.5 text-red-500 hover:bg-red-50 rounded transition"
@@ -594,7 +594,7 @@ export default function NotificationsPage() {
       header: 'Actions',
       cell: n => (
         <button
-          onClick={async () => { const r = await dispatch(deleteScheduledThunk(n.id)); if (r.meta.requestStatus === 'fulfilled') toast.success('Scheduled notification removed'); else toast.error('Delete failed') }}
+          onClick={async () => { const r = await dispatch(deleteScheduledThunk(n.id)); if (r.meta.requestStatus === 'fulfilled') { toast.success('Scheduled notification removed'); refetchSched() } else toast.error('Delete failed') }}
           className="p-1.5 text-red-500 hover:bg-red-50 rounded transition"
           title="Delete"
         >
@@ -608,7 +608,7 @@ export default function NotificationsPage() {
   const tabs = [
     { key: 'inbox',     label: 'Inbox',     badge: unreadCount > 0 ? unreadCount : null },
     { key: 'sent',      label: 'Sent',      badge: null },
-    { key: 'scheduled', label: 'Scheduled', badge: scheduled.length > 0 ? scheduled.length : null },
+    { key: 'scheduled', label: 'Scheduled', badge: schedTotal > 0 ? schedTotal : null },
   ]
 
   return (
@@ -697,6 +697,7 @@ export default function NotificationsPage() {
           columns={sentColumns}
           data={sentRows}
           total={sentTotal}
+          loading={sentLoading}
           searchPlaceholder="Search by title or recipients..."
           filterConfigs={[]}
           pageSize={PAGE_SIZE}
@@ -710,6 +711,7 @@ export default function NotificationsPage() {
           columns={scheduledColumns}
           data={schedRows}
           total={schedTotal}
+          loading={schedLoading}
           searchPlaceholder="Search by title or recipients..."
           filterConfigs={[]}
           pageSize={PAGE_SIZE}
@@ -721,7 +723,7 @@ export default function NotificationsPage() {
       {editingNotification && (
         <EditNotificationModal
           notification={editingNotification}
-          onClose={() => setEditingNotification(null)}
+          onClose={() => { setEditingNotification(null); refetchSent() }}
         />
       )}
 
@@ -729,7 +731,7 @@ export default function NotificationsPage() {
       <CreateNotificationModal
         isOpen={createOpen}
         onClose={() => setCreateOpen(false)}
-        onCreated={(tabType) => { setTab(tabType); setCreateOpen(false) }}
+        onCreated={(tabType) => { setTab(tabType); setCreateOpen(false); if (tabType === 'sent') refetchSent(); else refetchSched() }}
         courses={courses}
         students={students}
         systemStatus={systemStatus}

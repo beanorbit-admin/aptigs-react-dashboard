@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Pencil, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -7,8 +7,10 @@ import Button from '../../components/common/Button'
 import Badge from '../../components/common/Badge'
 import Modal from '../../components/common/Modal'
 import DataTable from '../../components/common/DataTable'
-import { useAppDispatch, useAppSelector } from '../../hooks/redux'
-import { fetchQuestionsThunk, deleteQuestionThunk } from '../../store/slices/questionSlice'
+import { useAppDispatch } from '../../hooks/redux'
+import { deleteQuestionThunk } from '../../store/slices/questionSlice'
+import { useApiQuery } from '../../hooks/useApiQuery'
+import api from '../../services/api'
 
 const typeBadge = { MCQ: 'info', TrueFalse: 'warning', FillBlank: 'default' }
 const PAGE_SIZE = 10
@@ -20,32 +22,30 @@ const FILTER_CONFIGS = [
 export default function QuestionList() {
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
-  const questions = useAppSelector(state => state.questions.list)
 
   const [query, setQuery] = useState({ search: '', filters: {}, page: 1 })
   const [deleteTarget, setDeleteTarget] = useState(null)
 
-  useEffect(() => { dispatch(fetchQuestionsThunk()) }, [dispatch])
+  const { data, loading, refetch } = useApiQuery(
+    (signal) => api.get('questions/', {
+      params: {
+        search: query.search || undefined,
+        page: query.page,
+        type: query.filters?.type !== 'All' ? query.filters.type : undefined,
+      },
+      signal,
+    }).then(r => r.data),
+    [query.search, query.page, query.filters?.type]
+  )
 
-  const { rows, total } = useMemo(() => {
-    const s = (query.search || '').toLowerCase()
-    const { type = 'All' } = query.filters || {}
-    const filtered = questions.filter(q => {
-      if (s && !q.text.toLowerCase().includes(s)) return false
-      if (type !== 'All' && q.type !== type) return false
-      return true
-    })
-    return {
-      rows: filtered.slice((query.page - 1) * PAGE_SIZE, query.page * PAGE_SIZE),
-      total: filtered.length,
-    }
-  }, [questions, query])
+  const rows = data?.results ?? []
+  const total = data?.count ?? 0
 
   const handleQuery = useCallback((q) => setQuery(q), [])
 
   const confirmDelete = async () => {
     const result = await dispatch(deleteQuestionThunk(deleteTarget.id))
-    if (result.meta.requestStatus === 'fulfilled') toast.success('Question deleted')
+    if (result.meta.requestStatus === 'fulfilled') { toast.success('Question deleted'); refetch() }
     else toast.error('Delete failed')
     setDeleteTarget(null)
   }
@@ -85,6 +85,7 @@ export default function QuestionList() {
         columns={columns}
         data={rows}
         total={total}
+        loading={loading}
         searchPlaceholder="Search questions..."
         filterConfigs={FILTER_CONFIGS}
         pageSize={PAGE_SIZE}

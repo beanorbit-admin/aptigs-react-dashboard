@@ -17,6 +17,7 @@ import {
   fetchLessonsThunk, createLessonThunk, updateLessonThunk, deleteLessonThunk,
 } from '../../store/slices/courseContentSlice'
 import { fetchCoursesThunk } from '../../store/slices/courseSlice'
+import CardSkeleton from '../../components/common/CardSkeleton'
 
 const VIDEO_TYPE_LABELS   = { youtube: 'YouTube', streaming: 'Streaming', m3u8: 'M3U8' }
 const VIDEO_TYPE_VARIANTS = { youtube: 'danger', streaming: 'info', m3u8: 'purple' }
@@ -48,7 +49,7 @@ export default function ChapterView() {
   const dispatch = useAppDispatch()
 
   const courses = useAppSelector(s => s.courses.list)
-  const { semesters, subjects, chapters, lessons } = useAppSelector(s => s.courseContent)
+  const { semesters, subjects, chapters, lessons, loading: contentLoading } = useAppSelector(s => s.courseContent)
 
   const [lessonModal, setLessonModal] = useState(false)
   const [editLesson, setEditLesson] = useState(null)
@@ -134,6 +135,12 @@ export default function ChapterView() {
     }
     setDeleteTarget(null)
   }
+
+  if (contentLoading && !chapter) return (
+    <PageWrapper title="Chapter">
+      <CardSkeleton count={4} />
+    </PageWrapper>
+  )
 
   if (!course || !semester || !subject || !chapter) return null
 

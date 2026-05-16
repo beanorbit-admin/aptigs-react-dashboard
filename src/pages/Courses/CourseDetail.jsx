@@ -8,6 +8,7 @@ import Button from '../../components/common/Button'
 import Table from '../../components/common/Table'
 import { useAppDispatch, useAppSelector } from '../../hooks/redux'
 import { fetchCoursesThunk, updateCourseThunk } from '../../store/slices/courseSlice'
+import CardSkeleton from '../../components/common/CardSkeleton'
 import { fetchTeachersThunk } from '../../store/slices/teacherSlice'
 import { fetchEnrollmentsThunk } from '../../store/slices/enrollmentSlice'
 import { fetchStudentsThunk } from '../../store/slices/studentSlice'
@@ -18,6 +19,7 @@ export default function CourseDetail() {
   const navigate = useNavigate()
   const dispatch = useAppDispatch()
   const course = useAppSelector(state => state.courses.list.find(c => c.id === Number(id)))
+  const courseLoading = useAppSelector(state => state.courses.loading)
   const teachers = useAppSelector(state => state.teachers.list)
   const enrollments = useAppSelector(state => state.enrollments.list.filter(e => e.course === Number(id)))
   const students = useAppSelector(state => state.students.list)
@@ -28,6 +30,12 @@ export default function CourseDetail() {
     dispatch(fetchEnrollmentsThunk({ course: id }))
     dispatch(fetchStudentsThunk())
   }, [dispatch, id])
+
+  if (courseLoading && !course) return (
+    <PageWrapper title="Course Detail">
+      <CardSkeleton count={3} />
+    </PageWrapper>
+  )
 
   if (!course) return (
     <PageWrapper title="Course Detail">

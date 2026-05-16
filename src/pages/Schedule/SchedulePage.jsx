@@ -8,6 +8,8 @@ import Button from '../../components/common/Button'
 import Badge from '../../components/common/Badge'
 import Modal from '../../components/common/Modal'
 import Table from '../../components/common/Table'
+import SearchInput from '../../components/common/SearchInput'
+import SkeletonRow from '../../components/common/SkeletonRow'
 import { useAppDispatch, useAppSelector } from '../../hooks/redux'
 import { fetchEventsThunk, createEventThunk, updateEventThunk, deleteEventThunk } from '../../store/slices/scheduleSlice'
 
@@ -19,11 +21,13 @@ const emptyForm = { title: '', type: 'Class', courseId: '', teacherId: '', date:
 export default function SchedulePage() {
   const dispatch = useAppDispatch()
   const events = useAppSelector(state => state.schedule.events)
+  const eventsLoading = useAppSelector(state => state.schedule.loading)
   const courses = useAppSelector(state => state.courses.list)
   const teachers = useAppSelector(state => state.teachers.list)
 
   const [view, setView] = useState('calendar')
   const [typeFilter, setTypeFilter] = useState('All')
+  const [listSearch, setListSearch] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [editTarget, setEditTarget] = useState(null)
   const [detailTarget, setDetailTarget] = useState(null)
@@ -43,7 +47,11 @@ export default function SchedulePage() {
     extendedProps: e,
   }))
 
-  const filteredList = typeFilter === 'All' ? events : events.filter(e => e.type === typeFilter)
+  const filteredList = events.filter(e => {
+    if (typeFilter !== 'All' && e.type !== typeFilter) return false
+    if (listSearch && !e.title.toLowerCase().includes(listSearch.toLowerCase())) return false
+    return true
+  })
 
   const openAdd = () => { setEditTarget(null); setForm(emptyForm); setModalOpen(true) }
   const openEdit = (e) => {
@@ -115,33 +123,51 @@ export default function SchedulePage() {
         </div>
       ) : (
         <>
-          <div className="mb-3">
+          <div className="flex items-center gap-3 mb-3">
             <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)}
               className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
               {['All', 'Class', 'Exam', 'Activity'].map(t => <option key={t}>{t}</option>)}
             </select>
+            <SearchInput value={listSearch} onChange={setListSearch} placeholder="Search events..." />
           </div>
-          <Table
-            columns={[
-              { header: 'Title', cell: e => <span className="font-medium text-gray-900">{e.title}</span> },
-              { header: 'Type', cell: e => <Badge variant={typeBadge[e.type]}>{e.type}</Badge> },
-              { header: 'Course', cell: e => e.course_title || '—' },
-              { header: 'Teacher', cell: e => e.teacher_name || '—' },
-              { header: 'Date', accessor: 'date' },
-              { header: 'Start', accessor: 'start_time' },
-              { header: 'End', accessor: 'end_time' },
-              {
-                header: 'Actions',
-                cell: e => (
-                  <div className="flex gap-2">
-                    <button onClick={() => openEdit(e)} className="p-1.5 text-amber-600 hover:bg-amber-50 rounded transition"><Pencil className="h-4 w-4" /></button>
-                    <button onClick={() => setDeleteTarget(e)} className="p-1.5 text-red-600 hover:bg-red-50 rounded transition"><Trash2 className="h-4 w-4" /></button>
-                  </div>
-                ),
-              },
-            ]}
-            data={filteredList}
-          />
+          {eventsLoading ? (
+            <div className="overflow-x-auto rounded-xl border border-gray-200">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-white">
+                  <tr>
+                    {['Title', 'Type', 'Course', 'Teacher', 'Date', 'Start', 'End', 'Actions'].map(h => (
+                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase text-gray-500 tracking-wider">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  <SkeletonRow cols={8} rows={6} />
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <Table
+              columns={[
+                { header: 'Title', cell: e => <span className="font-medium text-gray-900">{e.title}</span> },
+                { header: 'Type', cell: e => <Badge variant={typeBadge[e.type]}>{e.type}</Badge> },
+                { header: 'Course', cell: e => e.course_title || '—' },
+                { header: 'Teacher', cell: e => e.teacher_name || '—' },
+                { header: 'Date', accessor: 'date' },
+                { header: 'Start', accessor: 'start_time' },
+                { header: 'End', accessor: 'end_time' },
+                {
+                  header: 'Actions',
+                  cell: e => (
+                    <div className="flex gap-2">
+                      <button onClick={() => openEdit(e)} className="p-1.5 text-amber-600 hover:bg-amber-50 rounded transition"><Pencil className="h-4 w-4" /></button>
+                      <button onClick={() => setDeleteTarget(e)} className="p-1.5 text-red-600 hover:bg-red-50 rounded transition"><Trash2 className="h-4 w-4" /></button>
+                    </div>
+                  ),
+                },
+              ]}
+              data={filteredList}
+            />
+          )}
         </>
       )}
 

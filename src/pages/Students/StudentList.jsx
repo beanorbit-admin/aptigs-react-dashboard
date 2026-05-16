@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
@@ -9,15 +9,16 @@ import DataTable from '../../components/common/DataTable'
 import Modal from '../../components/common/Modal'
 import Input from '../../components/common/Input'
 import Badge from '../../components/common/Badge'
-import { useAppDispatch, useAppSelector } from '../../hooks/redux'
-import { fetchStudentsThunk, updateStudentThunk, deleteStudentThunk } from '../../store/slices/studentSlice'
+import { useAppDispatch } from '../../hooks/redux'
+import { updateStudentThunk, deleteStudentThunk } from '../../store/slices/studentSlice'
+import { useApiQuery } from '../../hooks/useApiQuery'
+import api from '../../services/api'
 
 const PAGE_SIZE = 10
 
 export default function StudentList() {
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
-  const students = useAppSelector(state => state.students.list)
 
   const [query, setQuery] = useState({ search: '', filters: {}, page: 1 })
   const [modalOpen, setModalOpen] = useState(false)
@@ -26,22 +27,16 @@ export default function StudentList() {
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm()
 
-  useEffect(() => { dispatch(fetchStudentsThunk()) }, [dispatch])
+  const { data, loading, refetch } = useApiQuery(
+    (signal) => api.get('auth/students/', {
+      params: { search: query.search || undefined, page: query.page },
+      signal,
+    }).then(r => r.data),
+    [query.search, query.page]
+  )
 
-  const { rows, total } = useMemo(() => {
-    const s = (query.search || '').toLowerCase()
-    const filtered = s
-      ? students.filter(st =>
-          [st.first_name, st.last_name, st.name, st.email].some(v =>
-            (v || '').toLowerCase().includes(s)
-          )
-        )
-      : students
-    return {
-      rows: filtered.slice((query.page - 1) * PAGE_SIZE, query.page * PAGE_SIZE),
-      total: filtered.length,
-    }
-  }, [students, query])
+  const rows = data?.results ?? []
+  const total = data?.count ?? 0
 
   const handleQuery = useCallback((q) => setQuery(q), [])
 
@@ -63,6 +58,7 @@ export default function StudentList() {
       toast.success('Student updated')
       setModalOpen(false)
       reset()
+      refetch()
     } else {
       toast.error('Failed to update student')
     }
@@ -72,6 +68,7 @@ export default function StudentList() {
     const result = await dispatch(deleteStudentThunk(deleteTarget.id))
     if (result.meta.requestStatus === 'fulfilled') {
       toast.success('Student deleted')
+      refetch()
     } else {
       toast.error('Failed to delete student')
     }
@@ -125,6 +122,7 @@ export default function StudentList() {
         columns={columns}
         data={rows}
         total={total}
+        loading={loading}
         searchPlaceholder="Search by name or email..."
         pageSize={PAGE_SIZE}
         onQueryChange={handleQuery}
