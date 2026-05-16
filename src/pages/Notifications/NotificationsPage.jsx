@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import {
   CreditCard, HelpCircle, BookOpen, CheckCheck,
-  Bell, Trash2, Send, Clock, ImageIcon, X, Search,
+  Bell, Trash2, Send, Clock, ImageIcon, X, Search, Pencil,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PageWrapper from '../../components/layout/PageWrapper'
@@ -13,7 +13,8 @@ import { useAppDispatch, useAppSelector } from '../../hooks/redux'
 import {
   fetchNotificationsThunk, markAsReadThunk, markAllAsReadThunk,
   fetchScheduledThunk, createScheduledThunk, deleteScheduledThunk,
-  sendNotification,
+  fetchSystemStatusThunk, sendNotificationNowThunk, fetchSentThunk,
+  updateSentThunk, deleteSentThunk,
 } from '../../store/slices/notificationSlice'
 import { fetchStudentsThunk } from '../../store/slices/studentSlice'
 import { fetchCoursesThunk } from '../../store/slices/courseSlice'
@@ -53,8 +54,17 @@ function formatSentTime(isoStr) {
   return new Date(isoStr).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
 }
 
+function targetLabel(n) {
+  if (n.recipients_preview) return n.recipients_preview
+  if (n.target === 'all_students') return 'All Students'
+  if (n.target === 'all_teachers') return 'All Teachers'
+  if (n.target === 'course_students') return 'Course Students'
+  if (n.target === 'selected_students') return 'Selected Students'
+  return n.target || '—'
+}
+
 // ─── Create / Schedule Notification Modal ───────────────────────────────────
-function CreateNotificationModal({ isOpen, onClose, courses, students }) {
+function CreateNotificationModal({ isOpen, onClose, onCreated, courses, students, systemStatus, sendLoading }) {
   const dispatch = useAppDispatch()
   const [form, setForm] = useState(INIT_FORM)
   const [studentSearch, setStudentSearch] = useState('')
@@ -104,37 +114,66 @@ function CreateNotificationModal({ isOpen, onClose, courses, students }) {
     return true
   }
 
-  const handleSendNow = () => {
+  const handleSendNow = async () => {
     if (!validate(false)) return
-    dispatch(sendNotification({
-      id: Date.now(),
+    const recipientTypeMap = {
+      'all-students': 'all_students',
+      'course-students': 'course_students',
+      'selected-students': 'selected_students',
+      'all-teachers': 'all_teachers',
+    }
+    const result = await dispatch(sendNotificationNowThunk({
       title: form.title,
       message: form.message,
-      image: form.image,
-      recipientType: form.recipientType,
-      courseId: form.courseId ? Number(form.courseId) : null,
-      studentIds: form.studentIds,
-      recipientLabel: recipientLabel(),
-      sentAt: new Date().toISOString(),
-      type: 'announcement',
+      type: 'general',
+      recipient_type: recipientTypeMap[form.recipientType],
+      course_id: form.courseId ? Number(form.courseId) : null,
+      student_ids: form.studentIds,
     }))
-    toast.success('Notification sent successfully')
-    reset(); onClose()
+    if (result.meta.requestStatus === 'fulfilled') {
+      const { warning, recipient_count } = result.payload
+      await dispatch(fetchSentThunk())
+      if (warning) {
+        toast(warning, { icon: '⚠️', duration: 6000 })
+      } else {
+        toast.success(`Sent to ${recipient_count} recipient${recipient_count !== 1 ? 's' : ''}`)
+      }
+      reset()
+      onCreated('sent')
+    } else {
+      toast.error(result.payload?.error || 'Failed to send notification')
+    }
   }
 
   const handleSchedule = async () => {
     if (!validate(true)) return
+    const recipientTypeMap = {
+      'all-students': 'all_students',
+      'course-students': 'course_students',
+      'selected-students': 'selected_students',
+      'all-teachers': 'all_teachers',
+    }
     const result = await dispatch(createScheduledThunk({
+      title: form.title,
       message: form.message,
-      target: form.recipientType === 'all-students' ? 'all_students'
-        : form.recipientType === 'course-students' ? 'course_students'
-        : 'all_teachers',
+      target: recipientTypeMap[form.recipientType] ?? 'all_students',
       course: form.courseId ? Number(form.courseId) : null,
+      selected_recipients: form.studentIds,
       scheduled_at: `${form.scheduleDate}T${form.scheduleTime}:00`,
     }))
-    if (result.meta.requestStatus === 'fulfilled') toast.success('Notification scheduled')
-    else toast.error('Failed to schedule')
-    reset(); onClose()
+    if (result.meta.requestStatus === 'fulfilled') {
+      const { warning } = result.payload
+      await dispatch(fetchScheduledThunk())
+      if (warning) {
+        toast(warning, { icon: '⚠️', duration: 6000 })
+      } else {
+        toast.success('Notification scheduled')
+      }
+      reset()
+      onCreated('scheduled')
+    } else {
+      toast.error('Failed to schedule notification')
+    }
   }
 
   const toggleStudent = (id) => {
@@ -151,6 +190,13 @@ function CreateNotificationModal({ isOpen, onClose, courses, students }) {
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title="Create Notification" size="lg">
       <div className="space-y-5">
+
+        {/* Provider unavailable warning */}
+        {systemStatus && !systemStatus.provider.available && (
+          <div className="px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg text-sm text-orange-800">
+            Provider &quot;{systemStatus.provider.name}&quot; is not configured — notifications may not be delivered.
+          </div>
+        )}
 
         {/* Title */}
         <div>
@@ -302,15 +348,94 @@ function CreateNotificationModal({ isOpen, onClose, courses, students }) {
 
         {/* Actions */}
         <div className="flex flex-wrap gap-3 pt-1">
-          <Button onClick={handleSendNow}>
+          <Button onClick={handleSendNow} disabled={sendLoading}>
             <Send className="h-4 w-4" />
-            Send Now
+            {sendLoading ? 'Sending…' : 'Send Now'}
           </Button>
-          <Button variant="secondary" onClick={handleSchedule}>
+          <Button
+            variant="secondary"
+            onClick={handleSchedule}
+            disabled={systemStatus != null && !systemStatus.celery.available}
+            title={systemStatus && !systemStatus.celery.available ? 'Celery workers are unavailable' : undefined}
+          >
             <Clock className="h-4 w-4" />
             Schedule
           </Button>
           <Button variant="ghost" onClick={handleClose}>Cancel</Button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+// ─── Edit Sent Notification Modal ────────────────────────────────────────────
+const TYPE_CHOICES = [
+  { value: 'general', label: 'General' },
+  { value: 'payment', label: 'Payment' },
+  { value: 'quiz',    label: 'Quiz' },
+  { value: 'lesson',  label: 'Lesson' },
+]
+
+function EditNotificationModal({ notification, onClose }) {
+  const dispatch = useAppDispatch()
+  const [form, setForm] = useState({
+    title:   notification.title   ?? '',
+    message: notification.message ?? '',
+    type:    notification.type    ?? 'general',
+  })
+  const [saving, setSaving] = useState(false)
+
+  const set = (key, val) => setForm(f => ({ ...f, [key]: val }))
+
+  const handleSave = async () => {
+    if (!form.title.trim()) { toast.error('Title is required'); return }
+    if (!form.message.trim()) { toast.error('Message is required'); return }
+    setSaving(true)
+    const result = await dispatch(updateSentThunk({ id: notification.id, data: form }))
+    setSaving(false)
+    if (result.meta.requestStatus === 'fulfilled') {
+      toast.success('Notification updated')
+      onClose()
+    } else {
+      toast.error(result.payload?.detail || 'Failed to update notification')
+    }
+  }
+
+  return (
+    <Modal isOpen onClose={onClose} title="Edit Notification" size="lg">
+      <div className="space-y-5">
+        <div>
+          <label className="text-sm font-medium text-gray-700 block mb-1">Title *</label>
+          <input
+            value={form.title}
+            onChange={e => set('title', e.target.value)}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+        </div>
+        <div>
+          <label className="text-sm font-medium text-gray-700 block mb-1">Message *</label>
+          <textarea
+            value={form.message}
+            onChange={e => set('message', e.target.value)}
+            rows={4}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+          />
+        </div>
+        <div>
+          <label className="text-sm font-medium text-gray-700 block mb-1">Type</label>
+          <select
+            value={form.type}
+            onChange={e => set('type', e.target.value)}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            {TYPE_CHOICES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+          </select>
+        </div>
+        <div className="flex gap-3 pt-1">
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? 'Saving…' : 'Save Changes'}
+          </Button>
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
         </div>
       </div>
     </Modal>
@@ -324,26 +449,31 @@ export default function NotificationsPage() {
   const notifications  = useAppSelector(state => state.notifications.list)
   const sent           = useAppSelector(state => state.notifications.sent)
   const scheduled      = useAppSelector(state => state.notifications.scheduled)
+  const systemStatus   = useAppSelector(state => state.notifications.systemStatus)
+  const sendLoading    = useAppSelector(state => state.notifications.sendLoading)
   const courses        = useAppSelector(state => state.courses.list)
   const students       = useAppSelector(state => state.students.list)
 
   const [tab, setTab] = useState('inbox')
   const [expandedId, setExpandedId] = useState(null)
   const [createOpen, setCreateOpen] = useState(false)
+  const [editingNotification, setEditingNotification] = useState(null)
   const [sentQuery, setSentQuery] = useState({ search: '', filters: {}, page: 1 })
   const [scheduledQuery, setScheduledQuery] = useState({ search: '', filters: {}, page: 1 })
 
   useEffect(() => {
     dispatch(fetchNotificationsThunk())
     dispatch(fetchScheduledThunk())
+    dispatch(fetchSentThunk())
     dispatch(fetchStudentsThunk())
     dispatch(fetchCoursesThunk())
+    dispatch(fetchSystemStatusThunk())
   }, [dispatch])
 
   // ── Sent table data ────────────────────────────────────────────────────────
   const { rows: sentRows, total: sentTotal } = useMemo(() => {
     const s = (sentQuery.search || '').toLowerCase()
-    const filtered = sent.filter(n => !s || n.title.toLowerCase().includes(s) || n.recipientLabel?.toLowerCase().includes(s))
+    const filtered = sent.filter(n => !s || n.title?.toLowerCase().includes(s) || targetLabel(n).toLowerCase().includes(s))
     return {
       rows: filtered.slice((sentQuery.page - 1) * PAGE_SIZE, sentQuery.page * PAGE_SIZE),
       total: filtered.length,
@@ -353,7 +483,7 @@ export default function NotificationsPage() {
   // ── Scheduled table data ───────────────────────────────────────────────────
   const { rows: schedRows, total: schedTotal } = useMemo(() => {
     const s = (scheduledQuery.search || '').toLowerCase()
-    const filtered = scheduled.filter(n => !s || n.title.toLowerCase().includes(s) || n.recipientLabel?.toLowerCase().includes(s))
+    const filtered = scheduled.filter(n => !s || n.title?.toLowerCase().includes(s) || targetLabel(n).toLowerCase().includes(s))
     return {
       rows: filtered.slice((scheduledQuery.page - 1) * PAGE_SIZE, scheduledQuery.page * PAGE_SIZE),
       total: filtered.length,
@@ -369,7 +499,7 @@ export default function NotificationsPage() {
   const sentColumns = [
     {
       header: 'Title',
-      cell: n => <span className="font-medium text-gray-900">{n.title}</span>,
+      cell: n => <span className="font-medium text-gray-900">{n.title || '—'}</span>,
     },
     {
       header: 'Message',
@@ -381,28 +511,47 @@ export default function NotificationsPage() {
     },
     {
       header: 'Recipients',
-      cell: n => <span className="text-sm text-gray-700">{n.recipientLabel}</span>,
+      cell: n => <span className="text-sm text-gray-700">{targetLabel(n)}</span>,
     },
     {
       header: 'Date Sent',
-      cell: n => <span className="text-sm text-gray-700">{formatDate(n.sentAt)}</span>,
+      cell: n => <span className="text-sm text-gray-700">{formatDate(n.sent_at)}</span>,
     },
     {
       header: 'Time Sent',
-      cell: n => <span className="text-sm text-gray-700">{formatSentTime(n.sentAt)}</span>,
+      cell: n => <span className="text-sm text-gray-700">{formatSentTime(n.sent_at)}</span>,
     },
     {
-      header: 'Image',
-      cell: n => n.image
-        ? <img src={n.image} alt="" className="h-8 w-8 rounded object-cover border border-gray-200" />
-        : <span className="text-gray-400 text-xs">—</span>,
+      header: 'Actions',
+      cell: n => (
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setEditingNotification(n)}
+            className="p-1.5 text-indigo-500 hover:bg-indigo-50 rounded transition"
+            title="Edit"
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
+          <button
+            onClick={async () => {
+              const r = await dispatch(deleteSentThunk(n.id))
+              if (r.meta.requestStatus === 'fulfilled') toast.success('Notification deleted')
+              else toast.error('Delete failed')
+            }}
+            className="p-1.5 text-red-500 hover:bg-red-50 rounded transition"
+            title="Delete"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+      ),
     },
   ]
 
   const scheduledColumns = [
     {
       header: 'Title',
-      cell: n => <span className="font-medium text-gray-900">{n.title}</span>,
+      cell: n => <span className="font-medium text-gray-900">{n.title || '—'}</span>,
     },
     {
       header: 'Message',
@@ -414,19 +563,19 @@ export default function NotificationsPage() {
     },
     {
       header: 'Recipients',
-      cell: n => <span className="text-sm text-gray-700">{n.recipientLabel}</span>,
+      cell: n => <span className="text-sm text-gray-700">{targetLabel(n)}</span>,
     },
     {
       header: 'Date',
-      cell: n => <span className="text-sm text-gray-700">{formatScheduleDate(n.scheduleDate)}</span>,
+      cell: n => <span className="text-sm text-gray-700">{formatDate(n.scheduled_at)}</span>,
     },
     {
       header: 'Time',
-      cell: n => <span className="text-sm text-gray-700">{formatScheduleTime(n.scheduleTime)}</span>,
+      cell: n => <span className="text-sm text-gray-700">{formatSentTime(n.scheduled_at)}</span>,
     },
     {
       header: 'Status',
-      cell: n => <Badge variant="warning">{n.status}</Badge>,
+      cell: n => <Badge variant="warning">Pending</Badge>,
     },
     {
       header: 'Actions',
@@ -451,6 +600,13 @@ export default function NotificationsPage() {
 
   return (
     <PageWrapper title="Notifications">
+      {/* Celery unavailable banner */}
+      {systemStatus && !systemStatus.celery.available && (
+        <div className="mb-4 px-4 py-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
+          Celery workers are unavailable — scheduled notifications will not be sent automatically.
+        </div>
+      )}
+
       {/* Header row */}
       <div className="flex items-center justify-between mb-5">
         <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
@@ -548,12 +704,23 @@ export default function NotificationsPage() {
         />
       )}
 
+      {/* Edit Notification Modal */}
+      {editingNotification && (
+        <EditNotificationModal
+          notification={editingNotification}
+          onClose={() => setEditingNotification(null)}
+        />
+      )}
+
       {/* Create Notification Modal */}
       <CreateNotificationModal
         isOpen={createOpen}
         onClose={() => setCreateOpen(false)}
+        onCreated={(tabType) => { setTab(tabType); setCreateOpen(false) }}
         courses={courses}
         students={students}
+        systemStatus={systemStatus}
+        sendLoading={sendLoading}
       />
     </PageWrapper>
   )
