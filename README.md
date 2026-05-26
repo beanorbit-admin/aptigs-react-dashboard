@@ -1,16 +1,63 @@
-# React + Vite
+# Aptigs Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Admin dashboard for the Aptigs e-learning platform. Built with React 19, Vite, Redux Toolkit, and Tailwind CSS.
 
-Currently, two official plugins are available:
+## Tech Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+| Layer | Library |
+|---|---|
+| UI framework | React 19 |
+| Build tool | Vite 8 |
+| State management | Redux Toolkit + React Redux |
+| Routing | React Router DOM v7 |
+| HTTP client | Axios (with JWT refresh interceptor) |
+| Styling | Tailwind CSS v3 |
+| Tables | TanStack Table v8 |
+| Rich text | Tiptap v3 |
+| Calendar | FullCalendar v6 |
+| Forms | React Hook Form |
+| Icons | Lucide React |
+| Notifications | React Hot Toast |
 
-## React Compiler
+## Project Structure
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```
+src/
+├── components/
+│   ├── common/       # Reusable UI: Button, Input, Modal, Table, DataTable,
+│   │                 #   Badge, Pagination, SearchInput, RichTextEditor, Skeletons
+│   └── layout/       # Header, Sidebar, PageWrapper
+├── hooks/            # useApiQuery, Redux typed hooks
+├── mock/             # Static mock data (courses, students, schedule, etc.)
+├── pages/
+│   ├── Courses/      # CourseList, CourseDetail, Categories, Semesters,
+│   │                 #   Subjects, Chapters (nested content tree)
+│   ├── Dashboard/
+│   ├── Enrollments/
+│   ├── Login/
+│   ├── Notifications/
+│   ├── Payments/
+│   ├── Questions/
+│   ├── Quizzes/
+│   ├── Schedule/     # Study Schedule templates + Events (FullCalendar)
+│   ├── Students/
+│   └── Teachers/
+├── routes/           # AppRouter, ProtectedRoute (supports adminOnly flag)
+├── services/         # One service file per domain (auth, course, student, etc.)
+├── store/
+│   ├── index.js      # Redux store
+│   └── slices/       # authSlice, courseSlice, studentSlice, …
+└── utils/
+    └── formatters.js
+```
 
-## Expanding the ESLint configuration
+## Getting Started
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```bash
+npm install
+npm run dev        # dev server at http://localhost:5173
+npm run build      # production build → dist/
+npm run preview    # preview production build
+npm run lint       # ESLint
+```
+
