@@ -34,7 +34,7 @@ jobs:
           DEST: ${{ secrets.SSH_DEST_PATH }}
         run: |
           mkdir -p ~/.ssh
-          echo "$SSH_KEY" > ~/.ssh/id_rsa
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
           rsync -avz --delete -e "ssh -i ~/.ssh/id_rsa" dist/ "$SSH_USER@$SSH_HOST:$DEST"
