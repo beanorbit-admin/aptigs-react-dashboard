@@ -1,5 +1,6 @@
 import { X } from 'lucide-react'
 import { useEffect } from 'react'
+import { createPortal } from 'react-dom'
 
 const sizeClasses = {
   sm: 'max-w-md',
@@ -16,7 +17,7 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' })
 
   if (!isOpen) return null
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       onClick={onClose}
@@ -39,6 +40,7 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' })
           {children}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

@@ -21,6 +21,7 @@ const statusVariant = { Paid: 'success', Partial: 'warning', Pending: 'danger' }
 const COUNTRY_CODES = ['+91', '+1', '+44', '+971', '+61', '+65', '+60']
 
 function getInitials(name) {
+  if (!name) return ''
   return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
 }
 
@@ -58,6 +59,8 @@ export default function StudentDetail() {
       <p className="text-gray-500">Student not found.</p>
     </PageWrapper>
   )
+
+  const studentName = student.name || `${student.first_name || ''} ${student.last_name || ''}`.trim()
 
   const enrolledCourseIds = enrollments.map(e => e.course)
   const availableCourses = courses.filter(c => !enrolledCourseIds.includes(c.id))
@@ -117,10 +120,10 @@ export default function StudentDetail() {
       {/* Profile card */}
       <div className="bg-white rounded-xl shadow-sm p-6 flex flex-col sm:flex-row items-start gap-6 mb-6">
         <div className="w-16 h-16 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 text-xl font-bold flex-shrink-0">
-          {getInitials(student.name)}
+          {getInitials(studentName)}
         </div>
         <div className="flex-1">
-          <h2 className="text-xl font-bold text-gray-900">{student.name}</h2>
+          <h2 className="text-xl font-bold text-gray-900">{studentName}</h2>
           <p className="text-sm text-gray-500">{student.email}</p>
           <p className="text-sm text-gray-500">{student.country_code} {student.phone}</p>
           {student.place && <p className="text-sm text-gray-500">{student.place}</p>}
@@ -212,7 +215,7 @@ export default function StudentDetail() {
 
       {/* Delete confirm */}
       <Modal isOpen={deleteOpen} onClose={() => setDeleteOpen(false)} title="Confirm Delete" size="sm">
-        <p className="text-sm text-gray-600 mb-6">Are you sure you want to delete <strong>{student.name}</strong>?</p>
+        <p className="text-sm text-gray-600 mb-6">Are you sure you want to delete <strong>{studentName}</strong>?</p>
         <div className="flex justify-end gap-3">
           <Button variant="secondary" onClick={() => setDeleteOpen(false)}>Cancel</Button>
           <Button variant="danger" onClick={onDelete}>Delete</Button>
