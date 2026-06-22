@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
 import {
   ArrowLeft, ChevronRight, Pencil, Trash2, Plus,
-  PlayCircle, Film, Radio, FileText, Download, ExternalLink, Video,
+  PlayCircle, Film, Radio, FileText, Download, ExternalLink, Video, Upload, Link2,
 } from 'lucide-react'
 import PageWrapper from '../../components/layout/PageWrapper'
 import Button from '../../components/common/Button'
@@ -56,6 +56,7 @@ export default function ChapterView() {
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [lessonType, setLessonType] = useState('video')
   const [videoType, setVideoType] = useState('youtube')
+  const [pdfSourceType, setPdfSourceType] = useState('url')
 
   const lessonForm = useForm()
 
@@ -80,6 +81,7 @@ export default function ChapterView() {
     setEditLesson(null)
     setLessonType('video')
     setVideoType('youtube')
+    setPdfSourceType('url')
     lessonForm.reset({ name: '', video_key: '', video_url: '', streaming_platform: '', streaming_key: '', pdf_url: '', is_downloadable: true })
     setLessonModal(true)
   }
@@ -88,6 +90,7 @@ export default function ChapterView() {
     setEditLesson(lesson)
     setLessonType(lesson.type)
     setVideoType(lesson.video_type || 'youtube')
+    setPdfSourceType(lesson.pdf_file ? 'file' : 'url')
     lessonForm.reset({
       name: lesson.name,
       video_key: lesson.video_key || '',
@@ -102,15 +105,25 @@ export default function ChapterView() {
 
   const onSave = async (data) => {
     const base = { chapter: Number(chapterId), subject: Number(subjectId), semester: Number(semesterId), course: Number(courseId), name: data.name, type: lessonType, order: chLessons.length + 1 }
-    const payload = lessonType === 'pdf'
-      ? { ...base, pdf_url: data.pdf_url, is_downloadable: !!data.is_downloadable }
-      : {
-          ...base,
-          video_type: videoType,
-          ...(videoType === 'youtube'   ? { video_key: data.video_key } : {}),
-          ...(videoType === 'm3u8'      ? { video_url: data.video_url } : {}),
-          ...(videoType === 'streaming' ? { streaming_platform: data.streaming_platform, streaming_key: data.streaming_key } : {}),
-        }
+    const pdfFile = data.pdf_file?.[0]
+
+    let payload
+    if (lessonType === 'pdf' && pdfSourceType === 'file' && pdfFile) {
+      payload = new FormData()
+      Object.entries(base).forEach(([key, value]) => payload.append(key, value))
+      payload.append('pdf_file', pdfFile)
+      payload.append('is_downloadable', !!data.is_downloadable)
+    } else if (lessonType === 'pdf') {
+      payload = { ...base, pdf_url: data.pdf_url, is_downloadable: !!data.is_downloadable }
+    } else {
+      payload = {
+        ...base,
+        video_type: videoType,
+        ...(videoType === 'youtube'   ? { video_key: data.video_key } : {}),
+        ...(videoType === 'm3u8'      ? { video_url: data.video_url } : {}),
+        ...(videoType === 'streaming' ? { streaming_platform: data.streaming_platform, streaming_key: data.streaming_key } : {}),
+      }
+    }
 
     let result
     if (editLesson) {
@@ -345,19 +358,71 @@ export default function ChapterView() {
           {/* PDF fields */}
           {lessonType === 'pdf' && (
             <>
-              <div className="flex flex-col gap-1">
-                <label className="text-sm font-medium text-gray-700 flex items-center gap-1.5">
-                  <ExternalLink className="h-3.5 w-3.5" /> PDF URL
-                </label>
-                <input
-                  {...lessonForm.register('pdf_url', { required: 'PDF URL is required' })}
-                  placeholder="https://example.com/document.pdf"
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-                {lessonForm.formState.errors.pdf_url && (
-                  <p className="text-xs text-red-600">{lessonForm.formState.errors.pdf_url.message}</p>
-                )}
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-medium text-gray-700">PDF Source</label>
+                <div className="flex gap-3">
+                  {[
+                    { value: 'url',  icon: Link2,  label: 'Link (URL)' },
+                    { value: 'file', icon: Upload, label: 'Upload File' },
+                  ].map(({ value, icon: Icon, label }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setPdfSourceType(value)}
+                      className={`flex items-center gap-2 flex-1 px-4 py-3 rounded-lg border-2 text-sm font-medium transition ${
+                        pdfSourceType === value
+                          ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                          : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" /> {label}
+                    </button>
+                  ))}
+                </div>
               </div>
+
+              {pdfSourceType === 'url' && (
+                <div className="flex flex-col gap-1">
+                  <label className="text-sm font-medium text-gray-700 flex items-center gap-1.5">
+                    <ExternalLink className="h-3.5 w-3.5" /> PDF URL
+                  </label>
+                  <input
+                    {...lessonForm.register('pdf_url', { required: pdfSourceType === 'url' ? 'PDF URL is required' : false })}
+                    placeholder="https://example.com/document.pdf"
+                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                  {lessonForm.formState.errors.pdf_url && (
+                    <p className="text-xs text-red-600">{lessonForm.formState.errors.pdf_url.message}</p>
+                  )}
+                </div>
+              )}
+
+              {pdfSourceType === 'file' && (
+                <div className="flex flex-col gap-1">
+                  <label className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-xl p-6 cursor-pointer hover:border-indigo-400 transition">
+                    <FileText className="h-8 w-8 text-gray-400 mb-2" />
+                    <span className="text-sm text-gray-600 font-medium">
+                      {lessonForm.watch('pdf_file')?.[0]?.name || 'Click to select a PDF'}
+                    </span>
+                    <span className="text-xs text-gray-400 mt-1">PDF only, up to 20MB</span>
+                    <input
+                      type="file"
+                      accept="application/pdf"
+                      className="hidden"
+                      {...lessonForm.register('pdf_file', { required: editLesson?.pdf_file ? false : (pdfSourceType === 'file' ? 'PDF file is required' : false) })}
+                    />
+                  </label>
+                  {editLesson?.pdf_file && !lessonForm.watch('pdf_file')?.[0] && (
+                    <a href={editLesson.pdf_file} target="_blank" rel="noreferrer" className="text-xs text-indigo-600 hover:underline mt-1">
+                      Current file: {editLesson.pdf_file.split('/').pop()}
+                    </a>
+                  )}
+                  {lessonForm.formState.errors.pdf_file && (
+                    <p className="text-xs text-red-600">{lessonForm.formState.errors.pdf_file.message}</p>
+                  )}
+                </div>
+              )}
+
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
