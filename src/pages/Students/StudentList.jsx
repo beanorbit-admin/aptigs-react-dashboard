@@ -93,8 +93,8 @@ export default function StudentList() {
     {
       header: 'Enrolled Courses',
       cell: r => (
-        <Badge variant={(r.enrolled_courses?.length ?? 0) > 0 ? 'info' : 'default'}>
-          {r.enrolled_courses?.length ?? 0} course{(r.enrolled_courses?.length ?? 0) !== 1 ? 's' : ''}
+        <Badge variant={(r.enrolled_courses ?? 0) > 0 ? 'info' : 'default'}>
+          {r.enrolled_courses ?? 0} course{(r.enrolled_courses ?? 0) !== 1 ? 's' : ''}
         </Badge>
       ),
     },

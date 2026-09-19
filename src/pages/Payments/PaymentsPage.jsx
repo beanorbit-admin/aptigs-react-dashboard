@@ -51,8 +51,8 @@ export default function PaymentsPage() {
   const totalPages = Math.ceil((data?.count ?? 0) / PAGE_SIZE)
 
   // Summary totals reflect the current page only (pagination trade-off)
-  const totalFee = paginated.reduce((s, e) => s + (e.course_fee || 0), 0)
-  const totalCollected = paginated.reduce((s, e) => s + (e.collected_amount || 0), 0)
+  const totalFee = paginated.reduce((s, e) => s + (Number(e.course_fee) || 0), 0)
+  const totalCollected = paginated.reduce((s, e) => s + (Number(e.collected_amount) || 0), 0)
   const totalBalance = totalFee - totalCollected
 
   const exportCSV = () => {
