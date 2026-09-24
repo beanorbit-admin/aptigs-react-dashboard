@@ -14,3 +14,6 @@ export const updateEnrollment = (id, data) =>
 
 export const deleteEnrollment = (id) =>
   api.delete(`enrollments/${id}/`)
+
+export const markEnrollmentPaid = (id) =>
+  api.post(`enrollments/${id}/mark-paid/`).then(r => r.data)

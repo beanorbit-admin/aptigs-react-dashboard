@@ -1,16 +1,16 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, X } from 'lucide-react'
+import { ArrowLeft, X, CircleDollarSign, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PageWrapper from '../../components/layout/PageWrapper'
 import Badge from '../../components/common/Badge'
-import Button from '../../components/common/Button'
 import Table from '../../components/common/Table'
+import ConfirmModal from '../../components/common/ConfirmModal'
 import { useAppDispatch, useAppSelector } from '../../hooks/redux'
 import { fetchCoursesThunk, updateCourseThunk } from '../../store/slices/courseSlice'
 import CardSkeleton from '../../components/common/CardSkeleton'
 import { fetchTeachersThunk } from '../../store/slices/teacherSlice'
-import { fetchEnrollmentsThunk } from '../../store/slices/enrollmentSlice'
+import { fetchEnrollmentsThunk, deleteEnrollmentThunk, markEnrollmentPaidThunk } from '../../store/slices/enrollmentSlice'
 import { fetchStudentsThunk } from '../../store/slices/studentSlice'
 import { formatCurrency } from '../../utils/formatters'
 
@@ -23,6 +23,7 @@ export default function CourseDetail() {
   const teachers = useAppSelector(state => state.teachers.list)
   const enrollments = useAppSelector(state => state.enrollments.list.filter(e => e.course === Number(id)))
   const students = useAppSelector(state => state.students.list)
+  const [removeTarget, setRemoveTarget] = useState(null)
 
   useEffect(() => {
     dispatch(fetchCoursesThunk())
@@ -51,6 +52,19 @@ export default function CourseDetail() {
     const result = await dispatch(updateCourseThunk({ id: course.id, data: { teacher_ids: newIds } }))
     if (result.meta.requestStatus === 'fulfilled') toast.success('Teacher removed')
     else toast.error('Remove failed')
+  }
+
+  const onMarkPaid = async (enrollment) => {
+    const result = await dispatch(markEnrollmentPaidThunk(enrollment.id))
+    if (result.meta.requestStatus === 'fulfilled') toast.success('Marked as fully paid')
+    else toast.error('Failed to update payment')
+  }
+
+  const onRemoveEnrollment = async () => {
+    const result = await dispatch(deleteEnrollmentThunk(removeTarget.id))
+    if (result.meta.requestStatus === 'fulfilled') toast.success(`${removeTarget.student_name} removed from course`)
+    else toast.error('Failed to remove enrollment')
+    setRemoveTarget(null)
   }
 
   return (
@@ -104,6 +118,21 @@ export default function CourseDetail() {
                     </Badge>
                   ),
                 },
+                {
+                  header: 'Actions',
+                  cell: e => (
+                    <div className="flex items-center gap-1">
+                      {e.status !== 'Paid' && (
+                        <button onClick={() => onMarkPaid(e)} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded transition" title="Mark as fully paid">
+                          <CircleDollarSign className="h-4 w-4" />
+                        </button>
+                      )}
+                      <button onClick={() => setRemoveTarget(e)} className="p-1.5 text-red-500 hover:bg-red-50 rounded transition" title="Remove from course">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ),
+                },
               ]}
               data={enrolledStudents}
             />
@@ -129,6 +158,16 @@ export default function CourseDetail() {
           )}
         </div>
       </div>
+
+      {/* Remove Enrollment Confirm */}
+      <ConfirmModal
+        isOpen={!!removeTarget}
+        onClose={() => setRemoveTarget(null)}
+        onConfirm={onRemoveEnrollment}
+        title="Remove from Course"
+        message={<>Remove <strong>{removeTarget?.student_name}</strong> from this course? This revokes their course access immediately.</>}
+        confirmLabel="Remove"
+      />
     </PageWrapper>
   )
 }

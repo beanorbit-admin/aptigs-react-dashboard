@@ -19,6 +19,10 @@ const FILTER_CONFIGS = [
   { key: 'status', label: 'All Statuses', options: ['Active', 'Inactive'] },
 ]
 
+function getTeacherName(t) {
+  return `${t.first_name || ''} ${t.last_name || ''}`.trim()
+}
+
 function genPassword() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$'
   return Array.from({ length: 10 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
@@ -86,7 +90,7 @@ export default function TeacherList() {
     setCredentials(null)
     setCourseIds([])
     setIsActive(t.status === 'Active')
-    reset({ name: t.name, email: t.email, phone: t.phone, password: '' })
+    reset({ name: getTeacherName(t), email: t.email, phone: t.phone, password: '' })
     setModalOpen(true)
   }
 
@@ -129,7 +133,7 @@ export default function TeacherList() {
   }
 
   const columns = [
-    { header: 'Name', cell: t => <span className="font-medium text-gray-900">{t.name}</span> },
+    { header: 'Name', cell: t => <span className="font-medium text-gray-900">{getTeacherName(t)}</span> },
     { header: 'Email', accessor: 'email' },
     { header: 'Phone', cell: t => <span className="text-sm text-gray-700">{t.country_code || '+91'} {t.phone}</span> },
     {
@@ -330,7 +334,7 @@ export default function TeacherList() {
       {/* Delete confirm */}
       <Modal isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Confirm Delete" size="sm">
         <p className="text-sm text-gray-600 mb-6">
-          Delete teacher <strong>{deleteTarget?.name}</strong>? This cannot be undone.
+          Delete teacher <strong>{deleteTarget && getTeacherName(deleteTarget)}</strong>? This cannot be undone.
         </p>
         <div className="flex justify-end gap-3">
           <Button variant="secondary" onClick={() => setDeleteTarget(null)}>Cancel</Button>

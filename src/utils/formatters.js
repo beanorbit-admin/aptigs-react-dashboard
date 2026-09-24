@@ -22,3 +22,16 @@ export function formatDate(dateString) {
   return new Date(dateString).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
+/** Turns a DRF error response body into a single readable string for a toast. */
+export function formatApiError(payload, fallback = 'Something went wrong') {
+  if (!payload) return fallback
+  if (typeof payload === 'string') return payload
+  if (payload.detail) return payload.detail
+
+  const messages = Object.entries(payload).flatMap(([field, value]) => {
+    const values = Array.isArray(value) ? value : [value]
+    return values.map(v => (field === 'non_field_errors' ? v : `${field}: ${v}`))
+  })
+  return messages.length ? messages.join(' | ') : fallback
+}
+

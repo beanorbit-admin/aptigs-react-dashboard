@@ -1,18 +1,19 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
-import { ArrowLeft, Pencil, Trash2 } from 'lucide-react'
+import { ArrowLeft, Pencil, Trash2, CircleDollarSign } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useForm } from 'react-hook-form'
 import PageWrapper from '../../components/layout/PageWrapper'
 import Button from '../../components/common/Button'
 import Badge from '../../components/common/Badge'
 import Modal from '../../components/common/Modal'
+import ConfirmModal from '../../components/common/ConfirmModal'
 import Table from '../../components/common/Table'
 import Input from '../../components/common/Input'
 import { useAppDispatch, useAppSelector } from '../../hooks/redux'
 import { fetchStudentThunk, updateStudentThunk, deleteStudentThunk } from '../../store/slices/studentSlice'
 import { fetchCoursesThunk } from '../../store/slices/courseSlice'
-import { fetchEnrollmentsThunk, createEnrollmentThunk } from '../../store/slices/enrollmentSlice'
+import { fetchEnrollmentsThunk, createEnrollmentThunk, deleteEnrollmentThunk, markEnrollmentPaidThunk } from '../../store/slices/enrollmentSlice'
 import { formatCurrency, formatDate } from '../../utils/formatters'
 import CardSkeleton from '../../components/common/CardSkeleton'
 
@@ -45,6 +46,7 @@ export default function StudentDetail() {
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [enrollOpen, setEnrollOpen] = useState(false)
   const [selectedCourseId, setSelectedCourseId] = useState('')
+  const [removeEnrollmentTarget, setRemoveEnrollmentTarget] = useState(null)
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm()
 
@@ -101,6 +103,19 @@ export default function StudentDetail() {
     setSelectedCourseId('')
   }
 
+  const onMarkPaid = async (enrollment) => {
+    const result = await dispatch(markEnrollmentPaidThunk(enrollment.id))
+    if (result.meta.requestStatus === 'fulfilled') toast.success('Marked as fully paid')
+    else toast.error('Failed to update payment')
+  }
+
+  const onRemoveEnrollment = async () => {
+    const result = await dispatch(deleteEnrollmentThunk(removeEnrollmentTarget.id))
+    if (result.meta.requestStatus === 'fulfilled') toast.success(`Removed from ${removeEnrollmentTarget.course_title}`)
+    else toast.error('Failed to remove enrollment')
+    setRemoveEnrollmentTarget(null)
+  }
+
   const enrollColumns = [
     { header: 'Course', cell: e => <span className="font-medium text-gray-900">{e.course_title}</span> },
     { header: 'Category', cell: e => courses.find(c => c.id === e.course)?.category || '—' },
@@ -109,6 +124,21 @@ export default function StudentDetail() {
     { header: 'Balance', cell: e => formatCurrency(e.course_fee - e.collected_amount) },
     { header: 'Status', cell: e => <Badge variant={statusVariant[e.status]}>{e.status}</Badge> },
     { header: 'Date', cell: e => formatDate(e.payment_date) },
+    {
+      header: 'Actions',
+      cell: e => (
+        <div className="flex items-center gap-1">
+          {e.status !== 'Paid' && (
+            <button onClick={() => onMarkPaid(e)} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded transition" title="Mark as fully paid">
+              <CircleDollarSign className="h-4 w-4" />
+            </button>
+          )}
+          <button onClick={() => setRemoveEnrollmentTarget(e)} className="p-1.5 text-red-500 hover:bg-red-50 rounded transition" title="Remove from course">
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+      ),
+    },
   ]
 
   return (
@@ -249,6 +279,16 @@ export default function StudentDetail() {
           </div>
         </div>
       </Modal>
+
+      {/* Remove Enrollment Confirm */}
+      <ConfirmModal
+        isOpen={!!removeEnrollmentTarget}
+        onClose={() => setRemoveEnrollmentTarget(null)}
+        onConfirm={onRemoveEnrollment}
+        title="Remove from Course"
+        message={<>Remove <strong>{studentName}</strong> from <strong>{removeEnrollmentTarget?.course_title}</strong>? This revokes their course access immediately.</>}
+        confirmLabel="Remove"
+      />
     </PageWrapper>
   )
 }

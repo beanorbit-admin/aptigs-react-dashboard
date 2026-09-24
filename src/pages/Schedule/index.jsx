@@ -18,6 +18,7 @@ import { fetchQuizzesThunk } from '../../store/slices/quizSlice'
 import { fetchQuizzes as fetchQuizzesAPI } from '../../services/assessmentService'
 import { fetchCoursesThunk } from '../../store/slices/courseSlice'
 import { fetchTeachersThunk } from '../../store/slices/teacherSlice'
+import { formatApiError } from '../../utils/formatters'
 
 const TYPE_COLORS = { LiveClass: '#3B82F6', LiveQuiz: '#7C3AED', Activity: '#F59E0B' }
 const TYPE_BADGE = { LiveClass: 'info', LiveQuiz: 'danger', Activity: 'warning' }
@@ -953,7 +954,18 @@ function EventsTab() {
   }
 
   const saveEvent = async () => {
-    if (!eForm.title || !eForm.date) { toast.error('Title and date are required'); return }
+    if (!eForm.title || !eForm.date || !eForm.startTime || !eForm.endTime) {
+      toast.error('Title, date, start time and end time are required')
+      return
+    }
+    if (eForm.endTime <= eForm.startTime) {
+      toast.error('End time must be after start time')
+      return
+    }
+    if (eForm.type === 'LiveQuiz' && !eForm.quizId) {
+      toast.error('Select a quiz for a Live Quiz / Exam event')
+      return
+    }
     const apiPayload = {
       title: eForm.title,
       type: eForm.type,
@@ -970,14 +982,13 @@ function EventsTab() {
     }
     if (editEvent) {
       const result = await dispatch(updateEventThunk({ id: editEvent.id, data: apiPayload }))
-      if (result.meta.requestStatus === 'fulfilled') toast.success('Event updated')
-      else toast.error('Update failed')
+      if (result.meta.requestStatus === 'fulfilled') { toast.success('Event updated'); setEventModalOpen(false) }
+      else toast.error(formatApiError(result.payload, 'Failed to update event'))
     } else {
       const result = await dispatch(createEventThunk(apiPayload))
-      if (result.meta.requestStatus === 'fulfilled') toast.success('Event created')
-      else toast.error('Create failed')
+      if (result.meta.requestStatus === 'fulfilled') { toast.success('Event created'); setEventModalOpen(false) }
+      else toast.error(formatApiError(result.payload, 'Failed to create event'))
     }
-    setEventModalOpen(false)
   }
 
   const TYPE_FILTER_OPTIONS = [
@@ -1247,9 +1258,10 @@ function EventsTab() {
               { key: 'endTime', label: 'End Time', type: 'time' },
             ].map(({ key, label, type }) => (
               <div key={key}>
-                <label className="text-sm font-medium text-gray-700 block mb-1">{label}</label>
+                <label className="text-sm font-medium text-gray-700 block mb-1">{label} <span className="text-red-500">*</span></label>
                 <input
                   type={type}
+                  required
                   value={eForm[key]}
                   onChange={e => setEForm(f => ({ ...f, [key]: e.target.value }))}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"

@@ -17,6 +17,10 @@ export const deleteEnrollmentThunk = createAsyncThunk('enrollments/delete', asyn
   try { await svc.deleteEnrollment(id); return id } catch (e) { return rejectWithValue(e.response?.data) }
 })
 
+export const markEnrollmentPaidThunk = createAsyncThunk('enrollments/markPaid', async (id, { rejectWithValue }) => {
+  try { return await svc.markEnrollmentPaid(id) } catch (e) { return rejectWithValue(e.response?.data) }
+})
+
 const enrollmentSlice = createSlice({
   name: 'enrollments',
   initialState: { list: [], totalCount: 0, loading: false, error: null },
@@ -45,6 +49,10 @@ const enrollmentSlice = createSlice({
       })
       .addCase(deleteEnrollmentThunk.fulfilled, (state, { payload: id }) => {
         state.list = state.list.filter(e => e.id !== id)
+      })
+      .addCase(markEnrollmentPaidThunk.fulfilled, (state, { payload }) => {
+        const idx = state.list.findIndex(e => e.id === payload.id)
+        if (idx !== -1) state.list[idx] = payload
       })
   },
 })

@@ -1,14 +1,15 @@
 import { useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Check, X, Pencil } from 'lucide-react'
+import { Check, X, Pencil, CircleDollarSign, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PageWrapper from '../../components/layout/PageWrapper'
 import Badge from '../../components/common/Badge'
 import Button from '../../components/common/Button'
 import Modal from '../../components/common/Modal'
+import ConfirmModal from '../../components/common/ConfirmModal'
 import DataTable from '../../components/common/DataTable'
 import { useAppDispatch } from '../../hooks/redux'
-import { updateEnrollmentThunk, deleteEnrollmentThunk } from '../../store/slices/enrollmentSlice'
+import { updateEnrollmentThunk, deleteEnrollmentThunk, markEnrollmentPaidThunk } from '../../store/slices/enrollmentSlice'
 import { formatCurrency, formatDate } from '../../utils/formatters'
 import { useApiQuery } from '../../hooks/useApiQuery'
 import api from '../../services/api'
@@ -43,6 +44,7 @@ export default function EnrollmentsPage() {
   const [activeQuery, setActiveQuery] = useState({ search: '', filters: {}, page: 1 })
   const [editTarget, setEditTarget] = useState(null)
   const [editForm, setEditForm] = useState({ collectedAmount: '', paymentDate: '' })
+  const [removeTarget, setRemoveTarget] = useState(null)
 
   // --- Pending requests ---
   const { data: pendingData, loading: pendingLoading, refetch: refetchPending } = useApiQuery(
@@ -174,6 +176,27 @@ export default function EnrollmentsPage() {
     setEditTarget(null)
   }
 
+  const onMarkPaid = async (e) => {
+    const result = await dispatch(markEnrollmentPaidThunk(e.id))
+    if (result.meta.requestStatus === 'fulfilled') {
+      toast.success('Marked as fully paid')
+      refetchActive()
+    } else {
+      toast.error('Failed to update payment')
+    }
+  }
+
+  const onRemove = async () => {
+    const result = await dispatch(deleteEnrollmentThunk(removeTarget.id))
+    if (result.meta.requestStatus === 'fulfilled') {
+      toast.success(`${removeTarget.student_name} removed from ${removeTarget.course_title}`)
+      refetchActive()
+    } else {
+      toast.error('Failed to remove enrollment')
+    }
+    setRemoveTarget(null)
+  }
+
   const activeColumns = [
     {
       header: 'Student',
@@ -195,9 +218,19 @@ export default function EnrollmentsPage() {
     {
       header: 'Action',
       cell: e => (
-        <button onClick={() => openEdit(e)} className="p-1.5 text-amber-600 hover:bg-amber-50 rounded transition" title="Edit payment">
-          <Pencil className="h-4 w-4" />
-        </button>
+        <div className="flex items-center gap-1">
+          <button onClick={() => openEdit(e)} className="p-1.5 text-amber-600 hover:bg-amber-50 rounded transition" title="Edit payment">
+            <Pencil className="h-4 w-4" />
+          </button>
+          {e.status !== 'Paid' && (
+            <button onClick={() => onMarkPaid(e)} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded transition" title="Mark as fully paid">
+              <CircleDollarSign className="h-4 w-4" />
+            </button>
+          )}
+          <button onClick={() => setRemoveTarget(e)} className="p-1.5 text-red-500 hover:bg-red-50 rounded transition" title="Remove from course">
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
       ),
     },
   ]
@@ -389,6 +422,16 @@ export default function EnrollmentsPage() {
           </div>
         )}
       </Modal>
+
+      {/* Remove Enrollment Confirm */}
+      <ConfirmModal
+        isOpen={!!removeTarget}
+        onClose={() => setRemoveTarget(null)}
+        onConfirm={onRemove}
+        title="Remove from Course"
+        message={<>Remove <strong>{removeTarget?.student_name}</strong> from <strong>{removeTarget?.course_title}</strong>? This revokes their course access immediately.</>}
+        confirmLabel="Remove"
+      />
     </PageWrapper>
   )
 }
