@@ -5,6 +5,7 @@ import { Mail, Lock, Eye, EyeOff } from 'lucide-react'
 import { useAppDispatch, useAppSelector } from '../../hooks/redux'
 import { loginThunk } from '../../store/slices/authSlice'
 import Button from '../../components/common/Button'
+import logo from '../../assets/logo.png'
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
@@ -42,6 +43,7 @@ export default function LoginPage() {
           <rect width="100%" height="100%" fill="url(#grid)" />
         </svg>
         <div className="relative z-10 text-center px-12">
+          <img src={logo} alt="Aptigs logo" className="w-28 h-28 mx-auto mb-6 drop-shadow-xl" />
           <h1 className="text-5xl font-bold text-white mb-4 tracking-tight">Aptigs</h1>
           <p className="text-indigo-200 text-xl font-light">Empowering Education</p>
           <div className="mt-12 grid grid-cols-3 gap-4 opacity-60">

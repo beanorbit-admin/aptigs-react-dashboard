@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 import { useAppDispatch, useAppSelector } from '../../hooks/redux'
 import { logout } from '../../store/slices/authSlice'
+import logo from '../../assets/logo.png'
 
 const navLinks = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -37,7 +38,8 @@ export default function Sidebar() {
 
   return (
     <aside className="fixed left-0 top-0 h-screen w-60 flex flex-col z-30" style={{ backgroundColor: '#1E1B4B' }}>
-      <div className="px-6 py-5 border-b border-indigo-900">
+      <div className="px-6 py-5 border-b border-indigo-900 flex items-center gap-3">
+        <img src={logo} alt="Aptigs logo" className="w-8 h-8" />
         <span className="text-white text-xl font-bold tracking-wide">Aptigs</span>
       </div>
 
