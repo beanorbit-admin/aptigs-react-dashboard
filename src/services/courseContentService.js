@@ -1,9 +1,4 @@
-import api from './api'
-
-// FormData needs its Content-Type set (with boundary) by the browser, not
-// the instance's default 'application/json' header.
-const formDataConfig = (data) =>
-  data instanceof FormData ? { headers: { 'Content-Type': undefined } } : undefined
+import api, { formDataConfig } from './api'
 
 // Semesters
 export const fetchSemesters = (params = {}) =>

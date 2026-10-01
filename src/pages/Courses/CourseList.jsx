@@ -8,7 +8,7 @@ import Badge from '../../components/common/Badge'
 import Modal from '../../components/common/Modal'
 import DataTable from '../../components/common/DataTable'
 import { useAppDispatch, useAppSelector } from '../../hooks/redux'
-import { fetchCategoriesThunk, createCourseThunk, updateCourseThunk, deleteCourseThunk } from '../../store/slices/courseSlice'
+import { fetchCategoriesThunk, saveCourseThunk, deleteCourseThunk } from '../../store/slices/courseSlice'
 import { formatCurrency } from '../../utils/formatters'
 import CourseFormModal from './CourseFormModal'
 import { useApiQuery } from '../../hooks/useApiQuery'
@@ -54,10 +54,8 @@ export default function CourseList() {
   const openAdd = () => { setEditTarget(null); setModalOpen(true) }
   const openEdit = (c) => { setEditTarget(c); setModalOpen(true) }
 
-  const onSave = async (data) => {
-    const result = editTarget
-      ? await dispatch(updateCourseThunk({ id: editTarget.id, data }))
-      : await dispatch(createCourseThunk(data))
+  const onSave = async (data, imageFile) => {
+    const result = await dispatch(saveCourseThunk({ id: editTarget?.id, data, imageFile }))
     if (result.meta.requestStatus === 'fulfilled') {
       toast.success(editTarget ? 'Course updated' : 'Course added')
       setModalOpen(false)
@@ -75,7 +73,17 @@ export default function CourseList() {
   }
 
   const columns = [
-    { header: 'Title', cell: c => <span className="font-medium text-gray-900">{c.title}</span> },
+    {
+      header: 'Title',
+      cell: c => (
+        <div className="flex items-center gap-3">
+          <div className="h-9 w-12 rounded-md overflow-hidden shrink-0 bg-gray-100">
+            {c.image && <img src={c.image} alt="" className="h-full w-full object-contain" />}
+          </div>
+          <span className="font-medium text-gray-900">{c.title}</span>
+        </div>
+      ),
+    },
     { header: 'Category', accessor: 'category' },
     { header: 'Duration', accessor: 'duration' },
     { header: 'Fee', cell: c => formatCurrency(c.fee) },

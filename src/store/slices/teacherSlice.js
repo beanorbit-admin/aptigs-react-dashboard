@@ -17,6 +17,10 @@ export const updateTeacherThunk = createAsyncThunk('teachers/update', async ({ i
   try { return await svc.updateTeacher(id, data) } catch (e) { return rejectWithValue(e.response?.data) }
 })
 
+export const saveTeacherThunk = createAsyncThunk('teachers/save', async ({ id, data, photoFile }, { rejectWithValue }) => {
+  try { return await svc.saveTeacher(id, data, photoFile) } catch (e) { return rejectWithValue(e.response?.data) }
+})
+
 export const deleteTeacherThunk = createAsyncThunk('teachers/delete', async (id, { rejectWithValue }) => {
   try { await svc.deleteTeacher(id); return id } catch (e) { return rejectWithValue(e.response?.data) }
 })
@@ -52,6 +56,12 @@ const teacherSlice = createSlice({
       .addCase(updateTeacherThunk.fulfilled, (state, { payload }) => {
         const idx = state.list.findIndex(t => t.id === payload.id)
         if (idx !== -1) state.list[idx] = payload
+        if (state.selected?.id === payload.id) state.selected = payload
+      })
+      .addCase(saveTeacherThunk.fulfilled, (state, { payload }) => {
+        const idx = state.list.findIndex(t => t.id === payload.id)
+        if (idx !== -1) state.list[idx] = payload
+        else state.list.push(payload)
         if (state.selected?.id === payload.id) state.selected = payload
       })
       .addCase(deleteTeacherThunk.fulfilled, (state, { payload: id }) => {

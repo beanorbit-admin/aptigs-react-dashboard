@@ -1,6 +1,6 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Eye, Pencil, Trash2, Copy, RefreshCw } from 'lucide-react'
+import { Eye, Pencil, Trash2, Copy, RefreshCw, UserCircle2 } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
 import PageWrapper from '../../components/layout/PageWrapper'
@@ -8,9 +8,10 @@ import Button from '../../components/common/Button'
 import Badge from '../../components/common/Badge'
 import Modal from '../../components/common/Modal'
 import DataTable from '../../components/common/DataTable'
-import { useAppDispatch, useAppSelector } from '../../hooks/redux'
-import { createTeacherThunk, updateTeacherThunk, deleteTeacherThunk, resetTeacherPasswordThunk } from '../../store/slices/teacherSlice'
-import { fetchCoursesThunk } from '../../store/slices/courseSlice'
+import { useAppDispatch } from '../../hooks/redux'
+import { saveTeacherThunk, deleteTeacherThunk, resetTeacherPasswordThunk } from '../../store/slices/teacherSlice'
+import { fetchCourseOptions } from '../../services/courseService'
+import SearchableMultiSelect from '../../components/common/SearchableMultiSelect'
 import { useApiQuery } from '../../hooks/useApiQuery'
 import api from '../../services/api'
 
@@ -45,7 +46,6 @@ function ToggleSwitch({ checked, onChange }) {
 export default function TeacherList() {
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
-  const courses = useAppSelector(state => state.courses.list)
 
   const [query, setQuery] = useState({ search: '', filters: {}, page: 1 })
   const [modalOpen, setModalOpen] = useState(false)
@@ -54,10 +54,16 @@ export default function TeacherList() {
   const [courseIds, setCourseIds] = useState([])
   const [isActive, setIsActive] = useState(true)
   const [credentials, setCredentials] = useState(null)
+  const [photoFile, setPhotoFile] = useState(null)
+  const [photoPreview, setPhotoPreview] = useState(null)
 
   const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm()
 
-  useEffect(() => { dispatch(fetchCoursesThunk()) }, [dispatch])
+  // Unpaginated, refreshed on each open so newly added courses show up.
+  const { data: courseOptions, loading: coursesLoading } = useApiQuery(
+    (signal) => (modalOpen ? fetchCourseOptions(signal) : Promise.resolve(null)),
+    [modalOpen]
+  )
 
   const { data, loading, refetch } = useApiQuery(
     (signal) => api.get('auth/teachers/', {
@@ -81,40 +87,52 @@ export default function TeacherList() {
     setCredentials(null)
     setCourseIds([])
     setIsActive(true)
-    reset({ name: '', email: '', phone: '', password: '' })
+    setPhotoFile(null)
+    setPhotoPreview(null)
+    reset({ name: '', designation: '', email: '', phone: '', password: '' })
     setModalOpen(true)
   }
 
   const openEdit = (t) => {
     setEditTarget(t)
     setCredentials(null)
-    setCourseIds([])
+    setCourseIds(t.course_ids || [])
     setIsActive(t.status === 'Active')
-    reset({ name: getTeacherName(t), email: t.email, phone: t.phone, password: '' })
+    setPhotoFile(null)
+    setPhotoPreview(t.photo || null)
+    reset({ name: getTeacherName(t), designation: t.designation || '', email: t.email, phone: t.phone, password: '' })
     setModalOpen(true)
   }
 
-  const closeModal = () => { setModalOpen(false); setCredentials(null) }
+  const pickPhoto = (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    if (photoPreview?.startsWith('blob:')) URL.revokeObjectURL(photoPreview)
+    setPhotoFile(file)
+    setPhotoPreview(URL.createObjectURL(file))
+  }
 
-  const toggleCourse = (cid) =>
-    setCourseIds(prev => prev.includes(cid) ? prev.filter(id => id !== cid) : [...prev, cid])
+  const closeModal = () => { setModalOpen(false); setCredentials(null) }
 
   const onSave = async (data) => {
     const payload = {
       first_name: data.name.split(' ')[0],
       last_name: data.name.split(' ').slice(1).join(' ') || '',
+      designation: data.designation || '',
       email: data.email,
       country_code: '+91',
       phone: data.phone,
       status: isActive ? 'Active' : 'Inactive',
       password: data.password || undefined,
+      course_ids: courseIds,
     }
     if (editTarget) {
-      const result = await dispatch(updateTeacherThunk({ id: editTarget.id, data: payload }))
+      const result = await dispatch(saveTeacherThunk({ id: editTarget.id, data: payload, photoFile }))
       if (result.meta.requestStatus === 'fulfilled') { toast.success('Teacher updated'); closeModal(); refetch() }
       else toast.error('Update failed')
     } else {
-      const result = await dispatch(createTeacherThunk(payload))
+      const result = await dispatch(saveTeacherThunk({ data: payload, photoFile }))
       if (result.meta.requestStatus === 'fulfilled') {
         setCredentials({ email: data.email, password: data.password })
         refetch()
@@ -133,7 +151,20 @@ export default function TeacherList() {
   }
 
   const columns = [
-    { header: 'Name', cell: t => <span className="font-medium text-gray-900">{getTeacherName(t)}</span> },
+    {
+      header: 'Name',
+      cell: t => (
+        <div className="flex items-center gap-3">
+          {t.photo
+            ? <img src={t.photo} alt="" className="h-8 w-8 rounded-full object-cover" />
+            : <UserCircle2 className="h-8 w-8 text-gray-300" />}
+          <div>
+            <p className="font-medium text-gray-900">{getTeacherName(t)}</p>
+            {t.designation && <p className="text-xs text-gray-500">{t.designation}</p>}
+          </div>
+        </div>
+      ),
+    },
     { header: 'Email', accessor: 'email' },
     { header: 'Phone', cell: t => <span className="text-sm text-gray-700">{t.country_code || '+91'} {t.phone}</span> },
     {
@@ -226,6 +257,24 @@ export default function TeacherList() {
               {errors.name && <p className="text-xs text-red-600">{errors.name.message}</p>}
             </div>
 
+            {/* Photo + designation (shown on course cards in the student app) */}
+            <div className="flex items-center gap-4">
+              <label className="relative cursor-pointer shrink-0" title="Upload photo">
+                {photoPreview
+                  ? <img src={photoPreview} alt="" className="h-14 w-14 rounded-full object-cover border border-gray-200" />
+                  : <UserCircle2 className="h-14 w-14 text-gray-300" />}
+                <input type="file" accept="image/*" className="hidden" onChange={pickPhoto} />
+              </label>
+              <div className="flex flex-col gap-1 flex-1">
+                <label className="text-sm font-medium text-gray-700">Designation</label>
+                <input
+                  {...register('designation')}
+                  placeholder="e.g. Physics Instructor"
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+
             {/* Email */}
             <div className="flex flex-col gap-1">
               <label className="text-sm font-medium text-gray-700">Email Address</label>
@@ -272,26 +321,18 @@ export default function TeacherList() {
             {/* Assign courses */}
             <div>
               <label className="text-sm font-medium text-gray-700 block mb-2">Assign Courses</label>
-              {courses.length === 0 ? (
-                <p className="text-xs text-gray-400">No courses available</p>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {courses.map(c => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => toggleCourse(c.id)}
-                      className={`px-3 py-1.5 rounded-full text-sm border transition ${
-                        courseIds.includes(c.id)
-                          ? 'bg-indigo-600 text-white border-indigo-600'
-                          : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                      }`}
-                    >
-                      {c.title}
-                    </button>
-                  ))}
-                </div>
-              )}
+              <SearchableMultiSelect
+                options={(courseOptions ?? []).map(c => ({
+                  id: c.id,
+                  label: c.title,
+                  sublabel: c.status === 'Inactive' ? 'Inactive' : '',
+                }))}
+                value={courseIds}
+                onChange={setCourseIds}
+                loading={coursesLoading}
+                searchPlaceholder="Search courses..."
+                emptyText="No courses available"
+              />
             </div>
 
             {/* Password */}

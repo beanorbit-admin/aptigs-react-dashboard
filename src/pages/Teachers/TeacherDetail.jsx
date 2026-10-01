@@ -62,11 +62,16 @@ export default function TeacherDetail() {
 
       {/* Profile */}
       <div className="bg-white rounded-xl shadow-sm p-6 mb-6 flex items-center gap-6">
-        <div className="w-16 h-16 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 text-xl font-bold">
-          {getInitials(teacher.name)}
-        </div>
+        {teacher.photo ? (
+          <img src={teacher.photo} alt="" className="w-16 h-16 rounded-full object-cover" />
+        ) : (
+          <div className="w-16 h-16 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 text-xl font-bold">
+            {getInitials(teacher.name)}
+          </div>
+        )}
         <div className="flex-1">
           <h2 className="text-xl font-bold text-gray-900">{teacher.name}</h2>
+          {teacher.designation && <p className="text-sm font-medium text-indigo-600">{teacher.designation}</p>}
           <p className="text-sm text-gray-500">{teacher.email}</p>
           <p className="text-sm text-gray-500">{teacher.country_code || '+91'} {teacher.phone}</p>
         </div>

@@ -37,6 +37,10 @@ export const updateCourseThunk = createAsyncThunk('courses/update', async ({ id,
   try { return await svc.updateCourse(id, data) } catch (e) { return rejectWithValue(e.response?.data) }
 })
 
+export const saveCourseThunk = createAsyncThunk('courses/save', async ({ id, data, imageFile }, { rejectWithValue }) => {
+  try { return await svc.saveCourse(id, data, imageFile) } catch (e) { return rejectWithValue(e.response?.data) }
+})
+
 export const deleteCourseThunk = createAsyncThunk('courses/delete', async (id, { rejectWithValue }) => {
   try { await svc.deleteCourse(id); return id } catch (e) { return rejectWithValue(e.response?.data) }
 })
@@ -93,6 +97,12 @@ const courseSlice = createSlice({
       .addCase(updateCourseThunk.fulfilled, (state, { payload }) => {
         const idx = state.list.findIndex(c => c.id === payload.id)
         if (idx !== -1) state.list[idx] = payload
+        if (state.selected?.id === payload.id) state.selected = payload
+      })
+      .addCase(saveCourseThunk.fulfilled, (state, { payload }) => {
+        const idx = state.list.findIndex(c => c.id === payload.id)
+        if (idx !== -1) state.list[idx] = { ...state.list[idx], ...payload }
+        else state.list.push(payload)
         if (state.selected?.id === payload.id) state.selected = payload
       })
       .addCase(deleteCourseThunk.fulfilled, (state, { payload: id }) => {

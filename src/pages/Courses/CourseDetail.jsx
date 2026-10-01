@@ -1,18 +1,21 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, X, CircleDollarSign, Trash2 } from 'lucide-react'
+import { ArrowLeft, X, CircleDollarSign, Trash2, Pencil, UserCircle2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import PageWrapper from '../../components/layout/PageWrapper'
 import Badge from '../../components/common/Badge'
 import Table from '../../components/common/Table'
 import ConfirmModal from '../../components/common/ConfirmModal'
 import { useAppDispatch, useAppSelector } from '../../hooks/redux'
-import { fetchCoursesThunk, updateCourseThunk } from '../../store/slices/courseSlice'
+import { fetchCoursesThunk, fetchCategoriesThunk, updateCourseThunk, saveCourseThunk } from '../../store/slices/courseSlice'
 import CardSkeleton from '../../components/common/CardSkeleton'
 import { fetchTeachersThunk } from '../../store/slices/teacherSlice'
 import { fetchEnrollmentsThunk, deleteEnrollmentThunk, markEnrollmentPaidThunk } from '../../store/slices/enrollmentSlice'
 import { fetchStudentsThunk } from '../../store/slices/studentSlice'
 import { formatCurrency } from '../../utils/formatters'
+import { useCardThemes } from '../../hooks/useCardThemes'
+import CourseCardPreview from '../../components/courses/CourseCardPreview'
+import CourseFormModal from './CourseFormModal'
 
 export default function CourseDetail() {
   const { id } = useParams()
@@ -23,13 +26,17 @@ export default function CourseDetail() {
   const teachers = useAppSelector(state => state.teachers.list)
   const enrollments = useAppSelector(state => state.enrollments.list.filter(e => e.course === Number(id)))
   const students = useAppSelector(state => state.students.list)
+  const categories = useAppSelector(state => state.courses.categories)
+  const cardThemes = useCardThemes()
   const [removeTarget, setRemoveTarget] = useState(null)
+  const [editOpen, setEditOpen] = useState(false)
 
   useEffect(() => {
     dispatch(fetchCoursesThunk())
     dispatch(fetchTeachersThunk())
     dispatch(fetchEnrollmentsThunk({ course: id }))
     dispatch(fetchStudentsThunk())
+    dispatch(fetchCategoriesThunk())
   }, [dispatch, id])
 
   if (courseLoading && !course) return (
@@ -44,7 +51,9 @@ export default function CourseDetail() {
     </PageWrapper>
   )
 
-  const assignedTeachers = teachers.filter(t => course.teacher_ids?.includes(t.id))
+  // Sorted by id, like the student API, so the preview shows the same tutor as the app.
+  const assignedTeachers = [...teachers.filter(t => course.teacher_ids?.includes(t.id))].sort((a, b) => a.id - b.id)
+  const cardTheme = cardThemes.find(t => t.key === course.card_theme)
   const enrolledStudents = enrollments.map(e => ({ ...e, studentObj: students.find(s => s.id === e.student) }))
 
   const removeTeacher = async (tid) => {
@@ -52,6 +61,17 @@ export default function CourseDetail() {
     const result = await dispatch(updateCourseThunk({ id: course.id, data: { teacher_ids: newIds } }))
     if (result.meta.requestStatus === 'fulfilled') toast.success('Teacher removed')
     else toast.error('Remove failed')
+  }
+
+  const onSaveCourse = async (data, imageFile) => {
+    const result = await dispatch(saveCourseThunk({ id: course.id, data, imageFile }))
+    if (result.meta.requestStatus === 'fulfilled') {
+      toast.success('Course updated')
+      setEditOpen(false)
+      dispatch(fetchCoursesThunk())
+    } else {
+      toast.error('Save failed')
+    }
   }
 
   const onMarkPaid = async (enrollment) => {
@@ -74,15 +94,21 @@ export default function CourseDetail() {
       </button>
 
       {/* Course info */}
-      <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
-        <div className="flex justify-between items-start">
+      <div className="bg-white rounded-xl shadow-sm p-6 mb-6 flex flex-col md:flex-row gap-6">
+        <div className="flex-1 min-w-0">
+        <div className="flex justify-between items-start gap-3">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">{course.title}</h2>
             <p className="text-gray-500 text-sm mt-1">{course.description}</p>
           </div>
-          <Badge variant={course.status === 'Active' ? 'success' : 'default'}>{course.status}</Badge>
+          <div className="flex items-center gap-2 shrink-0">
+            <Badge variant={course.status === 'Active' ? 'success' : 'default'}>{course.status}</Badge>
+            <button onClick={() => setEditOpen(true)} className="p-1.5 text-amber-600 hover:bg-amber-50 rounded transition" title="Edit course">
+              <Pencil className="h-4 w-4" />
+            </button>
+          </div>
         </div>
-        <div className="grid grid-cols-3 gap-4 mt-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
           <div>
             <p className="text-xs text-gray-500 uppercase font-semibold">Category</p>
             <p className="text-sm text-gray-800 font-medium">{course.category}</p>
@@ -92,9 +118,25 @@ export default function CourseDetail() {
             <p className="text-sm text-gray-800 font-medium">{course.duration}</p>
           </div>
           <div>
+            <p className="text-xs text-gray-500 uppercase font-semibold">Total Hours</p>
+            <p className="text-sm text-gray-800 font-medium">{course.duration_hours ?? '—'}</p>
+          </div>
+          <div>
             <p className="text-xs text-gray-500 uppercase font-semibold">Fee</p>
             <p className="text-sm text-gray-800 font-medium">{formatCurrency(course.fee)}</p>
           </div>
+        </div>
+        </div>
+        <div className="md:w-72 shrink-0">
+          <p className="text-xs text-gray-500 uppercase font-semibold mb-2">Student App Card</p>
+          <CourseCardPreview
+            title={course.title}
+            description={course.description}
+            image={course.image}
+            theme={cardTheme}
+            tutor={assignedTeachers.find(t => t.status === 'Active')}
+            durationHours={course.duration_hours}
+          />
         </div>
       </div>
 
@@ -148,7 +190,15 @@ export default function CourseDetail() {
             <ul className="space-y-2">
               {assignedTeachers.map(t => (
                 <li key={t.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
-                  <span className="text-sm font-medium text-gray-800">{t.name}</span>
+                  <div className="flex items-center gap-3 min-w-0">
+                    {t.photo
+                      ? <img src={t.photo} alt="" className="h-8 w-8 rounded-full object-cover" />
+                      : <UserCircle2 className="h-8 w-8 text-gray-300" />}
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-800 truncate">{t.name}</p>
+                      {t.designation && <p className="text-xs text-gray-500 truncate">{t.designation}</p>}
+                    </div>
+                  </div>
                   <button onClick={() => removeTeacher(t.id)} className="text-red-500 hover:text-red-700 p-0.5">
                     <X className="h-4 w-4" />
                   </button>
@@ -158,6 +208,14 @@ export default function CourseDetail() {
           )}
         </div>
       </div>
+
+      <CourseFormModal
+        isOpen={editOpen}
+        onClose={() => setEditOpen(false)}
+        onSave={onSaveCourse}
+        editTarget={course}
+        categories={categories}
+      />
 
       {/* Remove Enrollment Confirm */}
       <ConfirmModal

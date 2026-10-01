@@ -5,6 +5,11 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 })
 
+// FormData needs its Content-Type set (with boundary) by the browser, not
+// the instance's default 'application/json' header.
+export const formDataConfig = (data) =>
+  data instanceof FormData ? { headers: { 'Content-Type': undefined } } : undefined
+
 api.interceptors.request.use(config => {
   const token = localStorage.getItem('aptigs_token')
   if (token) config.headers.Authorization = `Bearer ${token}`
