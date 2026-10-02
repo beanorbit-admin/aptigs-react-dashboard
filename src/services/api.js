@@ -24,11 +24,16 @@ const processQueue = (error, token = null) => {
   failedQueue = []
 }
 
+// A 401 from these means bad credentials, not an expired session, so the
+// caller should handle it (no token refresh, no redirect/page reload).
+const AUTH_ENDPOINTS = ['auth/login/', 'auth/token/refresh/']
+const isAuthEndpoint = (url = '') => AUTH_ENDPOINTS.some(path => url.endsWith(path))
+
 api.interceptors.response.use(
   res => res,
   async error => {
     const original = error.config
-    if (error.response?.status === 401 && !original._retry) {
+    if (error.response?.status === 401 && !original._retry && !isAuthEndpoint(original.url)) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject })
