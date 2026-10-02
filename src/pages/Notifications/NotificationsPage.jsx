@@ -482,7 +482,7 @@ export default function NotificationsPage() {
   // ── Sent table data ────────────────────────────────────────────────────────
   const { data: sentData, loading: sentLoading, refetch: refetchSent } = useApiQuery(
     (signal) => api.get('notifications/admin/', {
-      params: { is_sent: true, search: sentQuery.search || undefined, page: sentQuery.page },
+      params: { is_sent: true, search: sentQuery.search || undefined, page: sentQuery.page, page_size: PAGE_SIZE },
       signal,
     }).then(r => r.data),
     [sentQuery.search, sentQuery.page]
@@ -494,7 +494,7 @@ export default function NotificationsPage() {
   // ── Scheduled table data ───────────────────────────────────────────────────
   const { data: schedData, loading: schedLoading, refetch: refetchSched } = useApiQuery(
     (signal) => api.get('notifications/admin/', {
-      params: { is_sent: false, search: scheduledQuery.search || undefined, page: scheduledQuery.page },
+      params: { is_sent: false, search: scheduledQuery.search || undefined, page: scheduledQuery.page, page_size: PAGE_SIZE },
       signal,
     }).then(r => r.data),
     [scheduledQuery.search, scheduledQuery.page]

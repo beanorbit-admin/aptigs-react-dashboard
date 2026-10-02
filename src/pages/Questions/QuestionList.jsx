@@ -31,6 +31,7 @@ export default function QuestionList() {
       params: {
         search: query.search || undefined,
         page: query.page,
+        page_size: PAGE_SIZE,
         type: query.filters?.type !== 'All' ? query.filters.type : undefined,
       },
       signal,

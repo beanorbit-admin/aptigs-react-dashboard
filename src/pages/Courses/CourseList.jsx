@@ -38,6 +38,7 @@ export default function CourseList() {
       params: {
         search: query.search || undefined,
         page: query.page,
+        page_size: PAGE_SIZE,
         category: query.filters?.category !== 'All' ? query.filters.category : undefined,
         status: query.filters?.status !== 'All' ? query.filters.status : undefined,
       },

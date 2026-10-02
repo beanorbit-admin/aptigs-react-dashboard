@@ -30,6 +30,7 @@ export default function QuizList() {
       params: {
         search: query.search || undefined,
         page: query.page,
+        page_size: PAGE_SIZE,
         status: query.filters?.status !== 'All' ? query.filters.status : undefined,
         quiz_type: query.filters?.quiz_type !== 'All' ? query.filters.quiz_type : undefined,
       },

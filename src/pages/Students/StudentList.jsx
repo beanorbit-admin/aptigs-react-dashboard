@@ -29,7 +29,7 @@ export default function StudentList() {
 
   const { data, loading, refetch } = useApiQuery(
     (signal) => api.get('auth/students/', {
-      params: { search: query.search || undefined, page: query.page },
+      params: { search: query.search || undefined, page: query.page, page_size: PAGE_SIZE },
       signal,
     }).then(r => r.data),
     [query.search, query.page]

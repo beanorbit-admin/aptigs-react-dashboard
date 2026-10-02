@@ -70,6 +70,7 @@ export default function TeacherList() {
       params: {
         search: query.search || undefined,
         page: query.page,
+        page_size: PAGE_SIZE,
         status: query.filters?.status !== 'All' ? query.filters.status : undefined,
       },
       signal,

@@ -37,6 +37,7 @@ export default function PaymentsPage() {
         access_status: 'granted',
         search: search || undefined,
         page,
+        page_size: PAGE_SIZE,
         status: statusFilter !== 'All' ? statusFilter : undefined,
         course_title: courseFilter !== 'All' ? courseFilter : undefined,
         payment_date_after: fromDate || undefined,
